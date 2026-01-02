@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { PlantEntity, MathProblem } from '../types';
 import { audio } from '../services/audioService';
-import { PLANT_CONFIGS } from '../constants';
+import { PLANT_CONFIGS, getNumberColorClass } from '../constants';
 
 interface UpgradeModalProps {
   plant: PlantEntity;
@@ -9,6 +10,7 @@ interface UpgradeModalProps {
   onUpgrade: (plantId: string, levelIncrement: number) => void;
   onHeal: (plantId: string) => void;
   onRemove: (plantId: string) => void;
+  onAttempt: (problem: MathProblem, answer: number, isCorrect: boolean) => void; // New Prop
   onClose: () => void;
 }
 
@@ -17,7 +19,7 @@ type Mode = 'MENU' | 'UPGRADE_CHALLENGE' | 'HEAL_CHALLENGE';
 const CHALLENGE_TIME_MS = 10000; // 10 seconds
 const QUESTIONS_COUNT = 3;
 
-export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTables, onUpgrade, onHeal, onRemove, onClose }) => {
+export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTables, onUpgrade, onHeal, onRemove, onAttempt, onClose }) => {
   const config = PLANT_CONFIGS[plant.type];
   const [mode, setMode] = useState<Mode>('MENU');
   
@@ -36,7 +38,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
     if ((mode === 'UPGRADE_CHALLENGE' || mode === 'HEAL_CHALLENGE') && problem) {
       timer = window.setInterval(() => {
         setTimeLeft(prev => {
-          if (prev <= 0) { handleFail(); return 0; }
+          if (prev <= 0) { handleFail(true); return 0; }
           if (prev % 1000 < 50 && prev > 100) audio.playTick();
           return prev - 50;
         });
@@ -44,6 +46,23 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
     }
     return () => clearInterval(timer);
   }, [mode, problem]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (mode === 'MENU') return;
+        if (e.key >= '0' && e.key <= '9') {
+            handleNumberClick(parseInt(e.key));
+        } else if (e.key === 'Backspace') {
+            handleBackspace();
+        } else if (e.key === 'Enter' || e.code === 'Space') {
+            e.preventDefault();
+            handleSubmit();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input, mode, problem]);
 
   const generateProblem = () => {
     const table = availableTables[Math.floor(Math.random() * availableTables.length)];
@@ -57,7 +76,12 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
     setMode(targetMode); setStreak(0); setQuestionIndex(0); generateProblem();
   };
 
-  const handleFail = () => {
+  const handleFail = (timeout = false) => {
+    // If failed by timeout, record it as a miss
+    if (timeout && problem) {
+       onAttempt(problem, -1, false);
+    }
+
     audio.playWrong();
     if (mode === 'UPGRADE_CHALLENGE' && streak >= 2) {
        finishChallenge(streak); 
@@ -76,7 +100,12 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
   const handleSubmit = () => {
     if (!problem) return;
     const val = parseInt(input, 10);
-    if (val === problem.answer) {
+    const correct = val === problem.answer;
+    
+    // Record Attempt
+    onAttempt(problem, val, correct);
+
+    if (correct) {
       const newStreak = streak + 1;
       setStreak(newStreak);
       setComboFlash(true);
@@ -87,7 +116,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
     } else {
       setShake(true); setTimeout(() => setShake(false), 500);
       setInput('');
-      handleFail();
+      handleFail(false);
     }
   };
 
@@ -161,19 +190,25 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
                 </div>
                 {/* Parchment Area */}
                 <div className="bg-[#fefce8] rounded-lg border-2 border-[#fcd34d] p-6 md:p-8 mb-4 landscape:mb-0 text-center h-24 md:h-32 flex items-center justify-center shadow-inner">
-                    <div className="text-3xl md:text-4xl flex justify-center items-center gap-2 md:gap-4 text-stone-800 font-bold">
-                    <span>{problem?.factorA}</span><span>x</span><span>{problem?.factorB}</span><span>=</span>
-                    <span className="text-blue-600 border-b-4 border-stone-800 min-w-[50px] md:min-w-[80px]">{input || '?'}</span>
+                    <div className="text-3xl md:text-4xl flex justify-center items-center gap-2 md:gap-4 text-stone-800 font-black">
+                        <span className={getNumberColorClass(problem?.factorA || 0)}>{problem?.factorA}</span>
+                        <span className="text-stone-400">x</span>
+                        <span className={getNumberColorClass(problem?.factorB || 0)}>{problem?.factorB}</span>
+                        <span className="text-stone-400">=</span>
+                        {/* USER INPUT: Changed to Black */}
+                        <span className="text-black border-b-4 border-stone-800 min-w-[50px] md:min-w-[80px]">{input || '?'}</span>
                     </div>
                 </div>
               </div>
               <div className="landscape:flex-1">
                 <div className="grid grid-cols-3 gap-2 md:gap-4">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(num => (
-                    <button key={num} onClick={() => handleNumberClick(num)} className="glossy-btn bg-stone-200 text-white text-lg md:text-3xl py-3">{num}</button>
+                    <button key={num} onClick={() => handleNumberClick(num)} className="glossy-btn bg-stone-200 text-black text-lg md:text-3xl py-3 font-black">
+                        <span style={{ textShadow: 'none' }}>{num}</span>
+                    </button>
                     ))}
                     <button onClick={handleBackspace} className="glossy-red bg-red-500 text-white text-sm md:text-xl py-3 rounded-lg">DEL</button>
-                    <button onClick={handleSubmit} className="bg-green-500 text-white text-sm md:text-xl py-3 rounded-lg border-b-4 border-green-700 active:border-0 active:translate-y-1 font-bold">OK</button>
+                    <button onClick={handleSubmit} className="bg-green-500 text-white text-sm md:text-xl py-3 rounded-lg border-b-4 border-green-700 active:border-0 active:translate-y-1 font-bold">OK (Space)</button>
                 </div>
               </div>
           </div>

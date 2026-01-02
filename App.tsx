@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   GameStatus, 
@@ -7,7 +8,8 @@ import {
   ProjectileEntity, 
   MathProblem, 
   SunEntity,
-  Tile
+  MathHistoryItem,
+  VisualCoin
 } from './types';
 import { 
   ROWS, 
@@ -16,13 +18,20 @@ import {
   PLANT_CONFIGS, 
   ZOMBIE_VARIANTS, 
   INITIAL_SUN,
-  INITIAL_LIVES
+  INITIAL_LIVES,
+  REVENGE_THRESHOLD,
+  FREEZE_THRESHOLD
 } from './constants';
 import { generateMathEncouragement } from './services/geminiService';
+import { firebaseService } from './services/firebaseService'; // SKELETON INTEGRATION
 import { MathModal } from './components/MathModal';
 import { UpgradeModal } from './components/UpgradeModal';
+import { RevengeModal } from './components/RevengeModal';
+import { ReportModal } from './components/ReportModal';
+import { StudyMode } from './components/StudyMode'; // New Import
+import { PieGauge } from './components/PieGauge';
 import { audio } from './services/audioService';
-import { SVG_PEASHOOTER, SVG_ZOMBIE_NORMAL } from './assets';
+import { SVG_PEASHOOTER, SVG_ZOMBIE_NORMAL, SVG_COIN } from './assets';
 
 const uuid = () => Math.random().toString(36).substring(2, 9);
 
@@ -38,10 +47,32 @@ export default function App() {
   const [zombies, setZombies] = useState<ZombieEntity[]>([]);
   const [projectiles, setProjectiles] = useState<ProjectileEntity[]>([]);
   const [floatingSuns, setFloatingSuns] = useState<SunEntity[]>([]);
+  const [visualCoins, setVisualCoins] = useState<VisualCoin[]>([]);
   const [wave, setWave] = useState(1);
   const [score, setScore] = useState(0);
 
+  // Coins Data
+  const [totalCoins, setTotalCoins] = useState(0); // Loaded from save
+  const [sessionCoins, setSessionCoins] = useState(0); // Earned this round
+
+  // --- DATA TRACKING & SKILLS ---
+  const [mathHistory, setMathHistory] = useState<MathHistoryItem[]>([]);
+  const [wrongCount, setWrongCount] = useState(0); 
+  const [showRevenge, setShowRevenge] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  
+  // Visual effects
+  const [flashLightning, setFlashLightning] = useState(false); 
+  const [showRevengeSuccess, setShowRevengeSuccess] = useState(false);
+  const [showDamageOverlay, setShowDamageOverlay] = useState(false);
+
+  const [freezeCharge, setFreezeCharge] = useState(0); 
+  const [isFrozen, setIsFrozen] = useState(false); 
+
   const [selectedPlantType, setSelectedPlantType] = useState<PlantType | null>(null);
+  // New state for tile-based selection
+  const [tileSelection, setTileSelection] = useState<{row: number, col: number} | null>(null);
+
   const [tooltip, setTooltip] = useState<{name: string, desc: string} | null>(null);
   const [tooltipTimer, setTooltipTimer] = useState<number | null>(null);
 
@@ -63,11 +94,13 @@ export default function App() {
     floatingSuns,
     status,
     wave,
+    isFrozen,
     lastTick: 0,
     zombieSpawnTimer: 0,
     sunSpawnTimer: 0,
     waveTimer: 0,
-    isPaused: false
+    isPaused: false,
+    showRevenge: false
   });
 
   useEffect(() => {
@@ -78,30 +111,125 @@ export default function App() {
     stateRef.current.floatingSuns = floatingSuns;
     stateRef.current.status = status;
     stateRef.current.wave = wave;
-    stateRef.current.isPaused = !!activeMathProblem || !!activePlantInteraction || isPaused;
-  }, [lives, plants, zombies, projectiles, floatingSuns, status, wave, activeMathProblem, activePlantInteraction, isPaused]);
+    stateRef.current.isFrozen = isFrozen;
+    stateRef.current.isPaused = !!activeMathProblem || !!activePlantInteraction || isPaused || showReport || !!tileSelection;
+    stateRef.current.showRevenge = showRevenge;
+  }, [lives, plants, zombies, projectiles, floatingSuns, status, wave, isFrozen, activeMathProblem, activePlantInteraction, isPaused, showRevenge, showReport, tileSelection]);
 
   useEffect(() => {
-    if (status === GameStatus.PLAYING && !isPaused) {
+    if (status === GameStatus.PLAYING && !isPaused && !showRevenge && !showReport && !tileSelection) {
       audio.startBGM();
     } else {
       audio.stopBGM();
     }
     return () => audio.stopBGM();
-  }, [status, isPaused]);
+  }, [status, isPaused, showRevenge, showReport, tileSelection]);
+
+  // --- AUTO FREEZE TRIGGER ---
+  useEffect(() => {
+    if (freezeCharge >= 100 && !isFrozen && !showRevenge && status === GameStatus.PLAYING) {
+        triggerFreezeSkill();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freezeCharge, isFrozen, showRevenge, status]);
+
+  const triggerFreezeSkill = () => {
+    setIsFrozen(true);
+    setFreezeCharge(0);
+    audio.playCollect(); 
+    setFeedbackMsg("❄️ AUTO FREEZE! ❄️");
+    setTimeout(() => {
+        setIsFrozen(false);
+        setFeedbackMsg("");
+    }, 5000);
+  };
+
+  const spawnCoin = (x: number, y: number) => {
+      const val = 10;
+      setVisualCoins(prev => [...prev, {
+          id: uuid(),
+          x,
+          y,
+          value: val,
+          createdAt: performance.now()
+      }]);
+      setSessionCoins(prev => prev + val);
+      setTotalCoins(prev => prev + val);
+      audio.playCoin();
+  };
+
+  const handleMathAttempt = (problem: MathProblem, userAnswer: number, isCorrect: boolean) => {
+    const attempt: MathHistoryItem = {
+      timestamp: Date.now(),
+      factorA: problem.factorA,
+      factorB: problem.factorB,
+      userAnswer,
+      isCorrect
+    };
+
+    setMathHistory(prev => {
+        const newHistory = [...prev, attempt];
+        if (newHistory.length % 5 === 0) {
+            firebaseService.syncProgress(newHistory); 
+        }
+        return newHistory;
+    });
+
+    if (isCorrect) {
+      const increment = 100 / FREEZE_THRESHOLD;
+      setFreezeCharge(prev => Math.min(100, prev + increment)); 
+      firebaseService.addScore(10); 
+    } else {
+      setWrongCount(prev => {
+          const newVal = prev + 1;
+          if (newVal >= REVENGE_THRESHOLD) {
+              setTimeout(() => setShowRevenge(true), 500); 
+              return 0; 
+          }
+          return newVal;
+      });
+    }
+  };
+
+  const handleRevengeComplete = () => {
+    setShowRevenge(false);
+    setShowRevengeSuccess(true);
+    setFlashLightning(true);
+    setWrongCount(0); 
+    firebaseService.addScore(100);
+    audio.playRevengeSuccess(); 
+    
+    // Bonus coins
+    setSessionCoins(p => p + 100);
+    setTotalCoins(p => p + 100);
+
+    setZombies(prev => prev.map(z => {
+        if (z.isDying) return z;
+        const hpPercent = z.hp / z.maxHp;
+        if (hpPercent < 0.1) {
+            return { ...z, hp: 0 }; 
+        } else {
+            const newHp = Math.max(1, z.maxHp * 0.1);
+            return { ...z, hp: newHp, lastHitTime: performance.now() }; 
+        }
+    }));
+
+    setTimeout(() => {
+        setFlashLightning(false);
+        setShowRevengeSuccess(false);
+    }, 3000);
+  };
 
   const createZombie = (currentWave: number): ZombieEntity => {
     const possibleVariants: (typeof ZOMBIE_VARIANTS)[number][] = [ZOMBIE_VARIANTS[0]];
     if (currentWave >= 3) possibleVariants.push(ZOMBIE_VARIANTS[1]);
     if (currentWave >= 6) possibleVariants.push(ZOMBIE_VARIANTS[2]);
     
-    // Boss Spawn Logic (Wave 8+)
     let variant = possibleVariants[Math.floor(Math.random() * possibleVariants.length)];
     if (currentWave >= 8 && Math.random() < 0.15) { 
        variant = ZOMBIE_VARIANTS[3]; // BOSS
     }
 
-    // Boss cannot spawn on the very last row because it takes 2 rows height
     let maxRow = ROWS;
     if (variant.type === 'BOSS') maxRow = ROWS - 1; 
 
@@ -147,7 +275,8 @@ export default function App() {
 
     const loop = (timestamp: number) => {
       const state = stateRef.current;
-      if (state.status !== GameStatus.PLAYING || state.isPaused) {
+      
+      if (state.status !== GameStatus.PLAYING || state.isPaused || state.showRevenge) {
         state.lastTick = timestamp;
         animationFrameId = requestAnimationFrame(loop);
         return;
@@ -157,7 +286,13 @@ export default function App() {
       if (delta >= TICK_RATE) {
         state.lastTick = timestamp;
 
-        state.waveTimer += delta;
+        if (!state.isFrozen) {
+            state.waveTimer += delta;
+            state.zombieSpawnTimer += delta;
+        }
+        state.sunSpawnTimer += delta;
+
+        // Wave Progress
         if (state.waveTimer > 30000) { 
            setWave(prev => prev + 1);
            setFeedbackMsg(`WAVE ${state.wave + 1}`);
@@ -165,13 +300,10 @@ export default function App() {
            state.waveTimer = 0;
         }
 
-        state.zombieSpawnTimer += delta;
-        state.sunSpawnTimer += delta;
-
         let currentZombies = [...state.zombies];
         const spawnRate = Math.max(1500, 10000 - (state.wave * 800)); 
         
-        if (state.zombieSpawnTimer > spawnRate) {
+        if (!state.isFrozen && state.zombieSpawnTimer > spawnRate) {
           currentZombies.push(createZombie(state.wave));
           state.zombieSpawnTimer = 0;
         }
@@ -186,20 +318,21 @@ export default function App() {
             sunsToAutoCollect.forEach(s => collectSun(s.id, s.value));
         }
 
+        // Cleanup visual coins after 1.5s
+        setVisualCoins(prev => prev.filter(c => timestamp - c.createdAt < 1500));
+
         const newProjectiles = [...state.projectiles];
         let updatedPlants = state.plants.map(p => ({...p}));
         const plantsToRemove: string[] = [];
 
+        // Plants Action
         updatedPlants = updatedPlants.map(plant => {
           const config = PLANT_CONFIGS[plant.type];
           
           if (plant.type === PlantType.PEASHOOTER) {
-            // Check for zombies in the same lane OR boss in adjacent lane
             const zombieInLane = currentZombies.some(z => {
-                if (z.x <= 5) return false;
-                // Regular hit
+                if (z.x <= 5 || z.isDying) return false; 
                 if (z.row === plant.row) return true;
-                // Boss Hit (takes up row and row+1)
                 if (z.type === 'BOSS' && z.row + 1 === plant.row) return true;
                 return false;
             });
@@ -236,10 +369,9 @@ export default function App() {
             if (timestamp - plant.lastActionTime > 1500) {
               const radius = 1.5; 
               currentZombies = currentZombies.map(z => {
+                if (z.isDying) return z;
                 const zCol = (z.x / 100) * COLS;
-                // Boss logic for distance (Boss center is kinda between row and row+1)
-                const rowDist = Math.abs(z.row - plant.row);
-                const effectiveRowDist = z.type === 'BOSS' ? Math.min(Math.abs(z.row - plant.row), Math.abs((z.row + 1) - plant.row)) : rowDist;
+                const effectiveRowDist = z.type === 'BOSS' ? Math.min(Math.abs(z.row - plant.row), Math.abs((z.row + 1) - plant.row)) : Math.abs(z.row - plant.row);
 
                 if (effectiveRowDist <= 1 && Math.abs(zCol - plant.col) <= radius) {
                   return { ...z, hp: z.hp - (config.damage || 500), lastHitTime: timestamp };
@@ -250,10 +382,10 @@ export default function App() {
               plantsToRemove.push(plant.id);
             }
           }
-          
           return plant;
         });
 
+        // Projectiles
         const survivingProjectiles: ProjectileEntity[] = [];
         let zombiesTookDamage = [...currentZombies];
 
@@ -261,16 +393,14 @@ export default function App() {
           proj.x += 1; 
           let hit = false;
           zombiesTookDamage = zombiesTookDamage.map(z => {
-            if (hit) return z; // Projectile already used
+            if (hit || z.isDying) return z; 
 
-            // Hit Logic
             const isRowMatch = (z.row === proj.row) || (z.type === 'BOSS' && z.row + 1 === proj.row);
             
             if (isRowMatch && z.x < proj.x && z.x + 5 > proj.x) {
               hit = true;
               audio.playHit();
-              // Knockback logic
-              const knockback = z.type === 'BOSS' ? 0.5 : 3; // Boss resists knockback
+              const knockback = z.type === 'BOSS' ? 0.5 : 3;
               return { ...z, hp: z.hp - proj.damage, lastHitTime: timestamp, x: Math.min(100, z.x + knockback) };
             }
             return z;
@@ -278,23 +408,35 @@ export default function App() {
           if (!hit && proj.x < 100) survivingProjectiles.push(proj);
         });
 
+        // Zombie Logic
         let livesLost = 0;
         const activeZombies: ZombieEntity[] = [];
 
         for (const z of zombiesTookDamage) {
-            if (z.hp <= 0) { setScore(s => s + 10); continue; }
-            
-            const isStunned = (timestamp - (z.lastHitTime || 0)) < 400;
+            if (z.hp <= 0 && !z.isDying) {
+                audio.playZombieDeath(); 
+                setScore(s => s + 10);
+                spawnCoin(z.x, (z.row / ROWS) * 100 + 10); // Spawn coin at death location
+                activeZombies.push({ ...z, isDying: true, deathTime: timestamp }); 
+                continue;
+            }
 
-            let moveSpeed = z.speed;
+            if (z.isDying) {
+                if (timestamp - (z.deathTime || 0) < 1000) {
+                    activeZombies.push(z);
+                }
+                continue; 
+            }
+            
+            let moveSpeed = state.isFrozen ? 0 : z.speed;
+            
+            const isStunned = (timestamp - (z.lastHitTime || 0)) < 300; 
             if (isStunned) {
-                moveSpeed = -0.05; // Knockback effect (move backward slightly)
+                moveSpeed = -0.05; 
             }
             
             let eating = false;
-            if (!isStunned) {
-                // Eating Logic
-                // Boss eats plants in row AND row+1
+            if (!isStunned && !state.isFrozen) {
                 const plantsToEat = updatedPlants.filter(p => {
                     const rowMatch = (p.row === z.row) || (z.type === 'BOSS' && p.row === z.row + 1);
                     const colMatch = p.col === Math.floor((z.x / 100) * COLS);
@@ -315,12 +457,21 @@ export default function App() {
             }
             
             const newX = z.x - moveSpeed;
-            if (newX <= 0) { livesLost += 1; audio.playWrong(); }
-            else activeZombies.push({ ...z, x: newX, isEating: eating });
+            if (newX <= 0) { 
+                livesLost += 1; 
+            }
+            else activeZombies.push({ ...z, x: newX, isEating: eating, isFrozen: state.isFrozen });
         }
 
         const finalPlants = updatedPlants.filter(p => p.hp > 0 && !plantsToRemove.includes(p.id));
-        setLives(l => l - livesLost);
+        
+        if (livesLost > 0) {
+            setLives(l => l - livesLost);
+            audio.playDamage();
+            setShowDamageOverlay(true);
+            setTimeout(() => setShowDamageOverlay(false), 500);
+        }
+
         if (lives - livesLost <= 0) setStatus(GameStatus.GAME_OVER);
         setPlants(finalPlants);
         setZombies(activeZombies);
@@ -334,7 +485,12 @@ export default function App() {
   }, [spawnSun, lives, collectSun]);
 
   const toggleSound = () => setIsMuted(audio.toggleMute());
-  const togglePause = () => setIsPaused(prev => !prev);
+  
+  // PAUSE NOW TOGGLES REPORT
+  const togglePause = () => {
+      // Toggle Report. The useEffect above handles the "paused" state logic via state.isPaused
+      setShowReport(prev => !prev);
+  };
 
   const toggleTableSelection = (num: number) => {
     setSelectedTables(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]);
@@ -345,13 +501,16 @@ export default function App() {
     if (selectedTables.length === 0) return;
     audio.playGameStart();
     setSun(INITIAL_SUN); setLives(INITIAL_LIVES); setPlants([]); setZombies([]); setProjectiles([]); setFloatingSuns([]); setWave(1); setScore(0);
+    setSessionCoins(0); 
+    setMathHistory([]); setWrongCount(0); setShowRevenge(false);
+    setFreezeCharge(0); setIsFrozen(false);
     setStatus(GameStatus.PLAYING); setIsPaused(false);
   };
 
   const handleGoToTitle = () => {
     audio.stopBGM();
     setPlants([]); setZombies([]); setProjectiles([]); setFloatingSuns([]); setWave(1); setScore(0); setLives(INITIAL_LIVES); setSun(INITIAL_SUN); setSelectedTables([]); setActiveMathProblem(null); setActivePlantInteraction(null); setFeedbackMsg("");
-    setStatus(GameStatus.TITLE); setIsPaused(false);
+    setStatus(GameStatus.TITLE); setIsPaused(false); setShowRevenge(false);
   };
 
   const handlePlantSelect = (type: PlantType) => {
@@ -359,6 +518,7 @@ export default function App() {
     if (selectedPlantType !== type) {
        setSelectedPlantType(type);
        setTooltip({ name: cfg.name, desc: cfg.description });
+       setTileSelection(null); // Clear tile selection if manually picking plant
        if (tooltipTimer) clearTimeout(tooltipTimer);
        setTooltipTimer(window.setTimeout(() => setTooltip(null), 4000));
     } else {
@@ -374,30 +534,65 @@ export default function App() {
     audio.playCollect();
   };
 
+  // Called when picking a plant from the tile popup
+  const handleTilePlantSelect = (type: PlantType) => {
+    if (!tileSelection) return;
+    const cfg = PLANT_CONFIGS[type];
+    
+    if (sun < cfg.cost) {
+      audio.playWrong();
+      return; // Do nothing if too expensive
+    }
+
+    // Identical logic to normal plant placement
+    audio.playCollect();
+    const table = selectedTables[Math.floor(Math.random() * selectedTables.length)];
+    const b = Math.floor(Math.random() * 9) + 1;
+    
+    // NOTE: We do NOT need to set selectedPlantType here. 
+    // We just set the active problem. The modal should appear if there is an active problem.
+    setActiveMathProblem({ 
+        plantType: type, 
+        row: tileSelection.row, 
+        col: tileSelection.col, 
+        problem: { factorA: table, factorB: b, answer: table * b } 
+    });
+    setTileSelection(null); // Close menu
+  };
+
   const handleCellClick = (row: number, col: number) => {
-    if (status !== GameStatus.PLAYING || isPaused) return;
+    if (status !== GameStatus.PLAYING || isPaused || showRevenge) return;
     const existingPlant = plants.find(p => p.row === row && p.col === col);
+    
+    // 1. Interaction with existing plant
     if (existingPlant) {
       if (!selectedPlantType) { setActivePlantInteraction(existingPlant); audio.playCollect(); }
       return;
     }
-    if (!selectedPlantType) return;
-    const config = PLANT_CONFIGS[selectedPlantType];
-    
-    if (sun < config.cost) {
-      setFeedbackMsg("Not enough Sun!");
-      setTimeout(() => setFeedbackMsg(""), 1000);
-      return;
+
+    // 2. Manual Plant Selection Active (Top Bar)
+    if (selectedPlantType) {
+        const config = PLANT_CONFIGS[selectedPlantType];
+        if (sun < config.cost) {
+            setFeedbackMsg("Not enough Sun!");
+            setTimeout(() => setFeedbackMsg(""), 1000);
+            return;
+        }
+        audio.playCollect();
+        const table = selectedTables[Math.floor(Math.random() * selectedTables.length)];
+        const b = Math.floor(Math.random() * 9) + 1;
+        setActiveMathProblem({ plantType: selectedPlantType, row, col, problem: { factorA: table, factorB: b, answer: table * b } });
+        return;
     }
-    
+
+    // 3. No plant selected + Empty Tile -> Open Tile Selection Menu
+    setTileSelection({ row, col });
     audio.playCollect();
-    const table = selectedTables[Math.floor(Math.random() * selectedTables.length)];
-    const b = Math.floor(Math.random() * 9) + 1;
-    setActiveMathProblem({ plantType: selectedPlantType, row, col, problem: { factorA: table, factorB: b, answer: table * b } });
   };
 
   const handleMathResult = async (success: boolean) => {
     if (!activeMathProblem) return;
+    
     if (success) {
       const config = PLANT_CONFIGS[activeMathProblem.plantType];
       setSun(prev => Math.max(0, prev - config.cost));
@@ -451,46 +646,99 @@ export default function App() {
     setActivePlantInteraction(null);
   };
 
+  const handleLoadSave = (coins: number, loadedScore: number) => {
+      setTotalCoins(coins);
+      setScore(loadedScore); // Might be cumulative score
+  };
+
   // --- RENDERERS ---
 
   if (status === GameStatus.TITLE) {
     return (
-      <div className="h-[100dvh] w-screen relative overflow-hidden bg-sky-300 font-sans select-none">
-        {/* Cartoon Sky */}
+      <div className="h-[100dvh] w-screen relative overflow-hidden bg-sky-300 font-sans select-none flex flex-col">
         <div className="absolute inset-0 bg-gradient-to-b from-sky-400 to-sky-100" />
-        
-        {/* Hills */}
         <div className="absolute bottom-0 w-full h-1/2 bg-green-500 rounded-t-[50%] scale-150 translate-y-20 border-t-8 border-green-600"></div>
         <div className="absolute bottom-0 left-0 w-full h-1/3 bg-green-400 rounded-t-[40%] scale-125 translate-y-10 -translate-x-20 border-t-8 border-green-500"></div>
 
-        <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-4">
-            <div className="mb-8 relative animate-float">
-                <h1 className="text-5xl sm:text-6xl md:text-8xl text-yellow-400 text-center font-black drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)] tracking-wider stroke-black" style={{ textShadow: '4px 4px 0 #000' }}>
+        <div className="relative z-10 w-full h-full flex flex-col items-center justify-between p-4 py-8">
+            
+            {/* Title Section */}
+            <div className="flex-1 flex flex-col justify-center items-center relative animate-float">
+                <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl landscape:text-5xl landscape:md:text-6xl text-yellow-400 text-center font-black drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)] tracking-wider stroke-black leading-tight" style={{ textShadow: '4px 4px 0 #000' }}>
                   MATH<br/>
-                  <span className="text-3xl sm:text-4xl md:text-6xl text-white">VS</span><br/>
+                  <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white">VS</span><br/>
                   ZOMBIES
                 </h1>
-                <div className="absolute -bottom-6 right-0 rotate-[-5deg] bg-red-600 text-white font-bold text-sm px-4 py-1 rounded-full border-2 border-white shadow-lg transform hover:scale-110 transition-transform">
+                <div className="mt-2 md:mt-4 text-2xl md:text-3xl lg:text-5xl landscape:text-2xl text-blue-400 font-black tracking-widest uppercase transform -rotate-2 hover:scale-110 transition-transform cursor-default" style={{ textShadow: '4px 4px 0 #000', WebkitTextStroke: '2px white' }}>
+                    For Gio ⚡
+                </div>
+                <div className="absolute -bottom-6 right-0 rotate-[-5deg] bg-red-600 text-white font-bold text-xs sm:text-sm md:text-base px-4 py-1 rounded-full border-2 border-white shadow-lg transform hover:scale-110 transition-transform">
                   Multiplication Edition!
                 </div>
             </div>
 
-            <div className="flex items-end gap-12 mb-12">
-                <div className="w-24 h-24 md:w-32 md:h-32 filter drop-shadow-2xl animate-bounce" style={{ animationDuration: '3s' }} dangerouslySetInnerHTML={{ __html: SVG_PEASHOOTER(1) }} />
-                <div className="w-24 h-24 md:w-32 md:h-32 filter drop-shadow-2xl animate-bounce" style={{ animationDuration: '3.5s' }} dangerouslySetInnerHTML={{ __html: SVG_ZOMBIE_NORMAL }} />
+            {/* Characters */}
+            <div className="flex items-end gap-12 mb-4 landscape:mb-2 landscape:gap-8 flex-shrink-0">
+                <div className="w-20 h-20 md:w-28 md:h-28 lg:w-32 lg:h-32 landscape:w-16 landscape:h-16 filter drop-shadow-2xl animate-bounce" style={{ animationDuration: '3s' }} dangerouslySetInnerHTML={{ __html: SVG_PEASHOOTER(1) }} />
+                <div className="w-20 h-20 md:w-28 md:h-28 lg:w-32 lg:h-32 landscape:w-16 landscape:h-16 filter drop-shadow-2xl animate-bounce" style={{ animationDuration: '3.5s' }} dangerouslySetInnerHTML={{ __html: SVG_ZOMBIE_NORMAL }} />
             </div>
 
-            <button 
-              onClick={() => {
-                audio.playCollect();
-                setStatus(GameStatus.MENU);
-              }}
-              className="glossy-btn bg-green-500 hover:bg-green-400 text-white text-2xl md:text-4xl py-6 px-16 border-b-8 border-green-700 active:border-b-0 active:translate-y-2 transition-all shadow-2xl animate-pulse font-black rounded-xl"
-            >
-              PLAY
-            </button>
+            {/* Buttons */}
+            <div className="flex gap-4 flex-wrap justify-center flex-shrink-0">
+                <button 
+                  onClick={() => {
+                    audio.playCollect();
+                    setStatus(GameStatus.MENU);
+                  }}
+                  className="glossy-btn bg-green-500 hover:bg-green-400 text-white text-2xl md:text-3xl lg:text-4xl landscape:text-xl py-4 px-12 md:py-6 md:px-16 border-b-8 border-green-700 active:border-b-0 active:translate-y-2 transition-all shadow-2xl animate-pulse font-black rounded-xl"
+                >
+                  PLAY
+                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => {
+                            audio.playCollect();
+                            setStatus(GameStatus.STUDY);
+                        }}
+                        className="bg-purple-500 hover:bg-purple-400 text-white p-3 md:p-4 rounded-xl border-b-8 border-purple-700 active:border-b-0 active:translate-y-2 font-bold flex flex-col items-center justify-center min-w-[80px]"
+                    >
+                        <span className="text-xl md:text-2xl lg:text-3xl">🌿</span>
+                        <span className="text-xs md:text-sm">Study</span>
+                    </button>
+                    <button
+                        onClick={() => { setShowReport(true); audio.playCollect(); }}
+                        className="bg-blue-500 hover:bg-blue-400 text-white p-3 md:p-4 rounded-xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 font-bold flex flex-col items-center justify-center min-w-[80px]"
+                    >
+                        <span className="text-xl md:text-2xl lg:text-3xl">📊</span>
+                        <span className="text-xs md:text-sm">Report</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div className="absolute bottom-2 text-white/60 text-[10px] font-bold">
+               © Garam Ahn. All rights reserved.
+            </div>
         </div>
+        {showReport && (
+            <ReportModal 
+                history={mathHistory} 
+                totalCoins={totalCoins} 
+                totalScore={score} 
+                onClose={() => setShowReport(false)}
+                onLoadSave={handleLoadSave}
+            />
+        )}
       </div>
+    );
+  }
+
+  // --- STUDY MODE ---
+  if (status === GameStatus.STUDY) {
+    return (
+        <StudyMode 
+            onBack={handleGoToTitle} 
+            onPlay={() => { audio.playCollect(); setStatus(GameStatus.MENU); }} 
+        />
     );
   }
 
@@ -499,10 +747,8 @@ export default function App() {
       <div className="h-[100dvh] bg-stone-800 flex flex-col items-center justify-center p-4 relative font-sans">
         <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
         <button onClick={handleGoToTitle} className="absolute top-6 left-6 text-white text-xl hover:text-yellow-400 z-10 font-bold drop-shadow-md">← Back</button>
-        
         <div className="wood-panel p-8 max-w-4xl w-full relative z-10 flex flex-col items-center">
           <h2 className="text-2xl sm:text-3xl md:text-4xl mb-8 text-yellow-100 font-black drop-shadow-md text-center">Select Multiplication Tables</h2>
-          
           <div className="grid grid-cols-4 gap-4 mb-8 w-full">
             {[2, 3, 4, 5, 6, 7, 8, 9].map(num => {
               const isSelected = selectedTables.includes(num);
@@ -516,12 +762,11 @@ export default function App() {
                       : 'bg-stone-600 text-stone-400 border-stone-800 hover:bg-stone-500'}
                   `}
                 >
-                  {num}
+                  <span className={isSelected ? "" : "opacity-80"}>{num}</span>
                 </button>
               );
             })}
           </div>
-          
           <button 
             onClick={handleStartGame}
             disabled={selectedTables.length === 0}
@@ -544,6 +789,7 @@ export default function App() {
         <h1 className="text-6xl sm:text-8xl text-red-500 mb-8 font-black drop-shadow-[0_5px_0_#fff]" style={{ textShadow: '4px 4px 0 #000' }}>GAME OVER</h1>
         <div className="wood-panel p-8 mb-8">
             <p className="text-2xl sm:text-4xl text-yellow-100 font-bold">Score: {score}</p>
+            <p className="text-xl text-yellow-200 mt-2">Coins Earned: {sessionCoins}</p>
         </div>
         <button 
           onClick={handleGoToTitle}
@@ -555,229 +801,368 @@ export default function App() {
     );
   }
 
-  // Playing View
+  // MAIN GAME RENDER
   return (
-    <div className={`h-[100dvh] w-screen flex flex-col bg-stone-900 relative overflow-hidden font-sans ${isPaused ? 'grayscale' : ''}`}>
-      {isPaused && (
-        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center">
-          <h2 className="text-6xl text-white drop-shadow-lg font-black mb-4">PAUSED</h2>
-          <button onClick={togglePause} className="glossy-btn bg-blue-500 text-white px-8 py-4 text-2xl font-bold">RESUME</button>
-        </div>
+    <div className="h-[100dvh] w-screen relative overflow-hidden font-sans bg-stone-900">
+      
+      {/* Damage Overlay */}
+      {showDamageOverlay && (
+          <div className="absolute inset-0 bg-red-600/40 z-[100] animate-pulse pointer-events-none mix-blend-multiply"></div>
       )}
 
-      {/* HUD Bar */}
-      <div className="h-20 bg-[#5d4037] flex items-center justify-between px-4 border-b-8 border-[#3e2723] z-20 shadow-xl relative">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] opacity-30 pointer-events-none"></div>
+      {/* --- GAME WORLD LAYER (Can be Grayed Out) --- */}
+      <div className={`flex flex-col h-full w-full transition-all duration-500 ${isPaused || showRevenge || showReport ? 'grayscale brightness-50' : ''}`}>
         
-        <div className="flex items-center gap-4 z-10">
-          <div className="bg-[#3e2723] rounded-full px-4 py-2 border-2 border-[#8d6e63] flex items-center gap-2 shadow-inner">
-            <span className="text-2xl filter drop-shadow-md">☀️</span>
-            <span className="text-white text-xl font-bold">{Math.floor(sun)}</span>
-          </div>
-          <div className="bg-[#3e2723] rounded-full px-4 py-2 border-2 border-[#8d6e63] flex items-center gap-2 shadow-inner">
-            <span className="text-2xl filter drop-shadow-md">❤️</span>
-            <span className="text-red-400 text-xl font-bold">{lives}</span>
-          </div>
-          
-          <div className="flex gap-2">
-            <button onClick={toggleSound} className="bg-[#8d6e63] w-10 h-10 rounded-full border-b-4 border-[#3e2723] flex items-center justify-center text-xl hover:bg-[#a1887f] active:border-b-0 active:translate-y-1">
-                {isMuted ? "🔇" : "🔊"}
-            </button>
-            <button onClick={togglePause} className="bg-blue-600 w-10 h-10 rounded-full border-b-4 border-blue-800 flex items-center justify-center text-white font-bold hover:bg-blue-500 active:border-b-0 active:translate-y-1">
-                {isPaused ? "▶" : "||"}
-            </button>
-            <button onClick={handleGoToTitle} className="bg-red-600 w-10 h-10 rounded-full border-b-4 border-red-800 flex items-center justify-center text-white text-xl hover:bg-red-500 active:border-b-0 active:translate-y-1">
-                🏠
-            </button>
-          </div>
-        </div>
-
-        {/* Plant Selector */}
-        <div className="flex gap-2 z-10">
-          {Object.values(PLANT_CONFIGS).map((config, idx) => (
-            <button key={config.type} onClick={() => handlePlantSelect(config.type)} 
-              className={`relative w-16 h-20 rounded-lg border-2 flex flex-col items-center justify-center transition-all overflow-visible shadow-lg
-                ${selectedPlantType === config.type ? 'border-yellow-400 bg-[#8d6e63] scale-110' : 'border-[#3e2723] bg-[#5d4037]'}
-                ${sun < config.cost ? 'opacity-50 grayscale' : 'hover:bg-[#6d4c41]'}
-              `}>
-              
-              <div className={`w-10 h-10 mb-1 pointer-events-none filter drop-shadow-md`} dangerouslySetInnerHTML={{ __html: config.svg(1) }} />
-              <span className={`text-xs font-bold ${sun < config.cost ? 'text-red-300' : 'text-white'}`}>{config.cost}</span>
-              
-              {tooltip && selectedPlantType === config.type && (
-                <div className="absolute top-[110%] left-1/2 -translate-x-1/2 z-50 bg-[#fffbeb] border-2 border-[#78350f] p-3 rounded-xl shadow-xl text-center pointer-events-none min-w-[160px]">
-                   <h3 className="text-[#78350f] font-black text-sm mb-1">{tooltip.name}</h3>
-                   <p className="text-[#92400e] text-xs leading-tight">{tooltip.desc}</p>
-                   <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#fffbeb] border-l-2 border-t-2 border-[#78350f] transform rotate-45"></div>
+        {/* HUD Bar */}
+        <div className="h-20 bg-[#5d4037] flex items-center justify-between px-4 border-b-8 border-[#3e2723] z-20 shadow-xl relative">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] opacity-30 pointer-events-none"></div>
+          <div className="flex items-center gap-4 z-10">
+            {/* Coins Display */}
+            <div className="bg-[#3e2723] rounded-lg px-2 py-1 border border-[#8d6e63] flex flex-col text-xs shadow-inner min-w-[80px]">
+                <div className="text-yellow-400 font-bold flex justify-between">
+                    <span>Now:</span><span>${sessionCoins}</span>
                 </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
+                <div className="text-stone-400 font-bold flex justify-between border-t border-stone-600">
+                    <span>Total:</span><span>${totalCoins}</span>
+                </div>
+            </div>
 
-      {/* Game Area - Lawn Background */}
-      <div className="flex-1 relative overflow-hidden touch-none lawn-bg">
-        
-        {/* Grid Layer */}
-        <div className="absolute inset-0 flex flex-col pt-4 pb-2 px-4">
-          {Array.from({ length: ROWS }).map((_, r) => (
-            <div key={r} className="flex-1 flex w-full mb-2">
-              {Array.from({ length: COLS }).map((_, c) => {
-                 const healerNearby = plants.some(p => p.type === PlantType.SUNFLOWER && (Math.abs(p.row - r) + Math.abs(p.col - c) === 1));
-                 return (
-                  <div key={c} 
-                       className={`flex-1 relative rounded-lg mx-1 transition-colors duration-200
-                         ${healerNearby ? 'bg-yellow-400/20 shadow-[0_0_15px_rgba(250,204,21,0.5)] border-2 border-yellow-300' : 'hover:bg-white/10'}
-                       `}
-                       onClick={() => handleCellClick(r, c)}>
-                        {/* Optional subtle tile marker */}
-                        <div className="absolute inset-0 border-2 border-black/5 rounded-lg pointer-events-none"></div>
+            <div className="bg-[#3e2723] rounded-full px-4 py-2 border-2 border-[#8d6e63] flex items-center gap-2 shadow-inner">
+              <span className="text-2xl filter drop-shadow-md">☀️</span>
+              <span className="text-white text-xl font-bold">{Math.floor(sun)}</span>
+            </div>
+            
+            {/* Health Bar Gauge */}
+            <div className="bg-[#3e2723] rounded-lg px-2 py-1 border-2 border-[#8d6e63] flex gap-1 shadow-inner h-10 items-center">
+               {[...Array(INITIAL_LIVES)].map((_, i) => (
+                   <div key={i} className={`w-6 h-6 rounded-sm border transition-all duration-300 
+                       ${i < lives ? 'bg-red-500 border-red-700 shadow-[0_0_5px_red]' : 'bg-stone-800 border-stone-700 opacity-30'}
+                   `}></div>
+               ))}
+            </div>
+            
+            <div className="flex gap-2">
+              <button onClick={toggleSound} className="bg-[#8d6e63] w-10 h-10 rounded-full border-b-4 border-[#3e2723] flex items-center justify-center text-xl hover:bg-[#a1887f] active:border-b-0 active:translate-y-1">
+                  {isMuted ? "🔇" : "🔊"}
+              </button>
+              {/* PAUSE BUTTON NOW OPENS REPORT DIRECTLY */}
+              <button onClick={togglePause} className="bg-blue-600 w-10 h-10 rounded-full border-b-4 border-blue-800 flex items-center justify-center text-white font-bold hover:bg-blue-500 active:border-b-0 active:translate-y-1">
+                  {showReport ? "▶" : "||"}
+              </button>
+              <button onClick={handleGoToTitle} className="bg-red-600 w-10 h-10 rounded-full border-b-4 border-red-800 flex items-center justify-center text-white text-xl hover:bg-red-500 active:border-b-0 active:translate-y-1">
+                  🏠
+              </button>
+            </div>
+          </div>
+
+          {/* Plant Selector */}
+          <div className="flex gap-2 z-10">
+            {Object.values(PLANT_CONFIGS).map((config, idx) => (
+              <button key={config.type} onClick={() => handlePlantSelect(config.type)} 
+                className={`relative w-16 h-20 rounded-lg border-2 flex flex-col items-center justify-center transition-all overflow-visible shadow-lg
+                  ${selectedPlantType === config.type ? 'border-yellow-400 bg-[#8d6e63] scale-110' : 'border-[#3e2723] bg-[#5d4037]'}
+                  ${sun < config.cost ? 'opacity-50 grayscale' : 'hover:bg-[#6d4c41]'}
+                `}>
+                
+                <div className={`w-10 h-10 mb-1 pointer-events-none filter drop-shadow-md`} dangerouslySetInnerHTML={{ __html: config.svg(1) }} />
+                <span className={`text-xs font-bold ${sun < config.cost ? 'text-red-300' : 'text-white'}`}>{config.cost}</span>
+                
+                {tooltip && selectedPlantType === config.type && (
+                  <div className="absolute top-[110%] left-1/2 -translate-x-1/2 z-50 bg-[#fffbeb] border-2 border-[#78350f] p-3 rounded-xl shadow-xl text-center pointer-events-none min-w-[160px]">
+                    <h3 className="text-[#78350f] font-black text-sm mb-1">{tooltip.name}</h3>
+                    <p className="text-[#92400e] text-xs leading-tight">{tooltip.desc}</p>
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#fffbeb] border-l-2 border-t-2 border-[#78350f] transform rotate-45"></div>
                   </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-        
-        {feedbackMsg && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 bg-black/60 backdrop-blur-md text-white px-6 py-3 rounded-full border-2 border-white text-xl font-bold animate-float pointer-events-none shadow-xl">
-            {feedbackMsg}
+                )}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
-        {/* Entities Layer */}
-        {plants.map(plant => {
-          const cfg = PLANT_CONFIGS[plant.type];
-          const isHit = performance.now() - (plant.lastHitTime || 0) < 500;
-          const isShooting = performance.now() - plant.lastActionTime < 200;
-          const hpPercent = Math.max(0, (plant.hp / plant.maxHp) * 100);
+        {/* LAWN AREA */}
+        <div className="flex-1 relative overflow-hidden touch-none lawn-bg">
+          <div className="absolute inset-0 flex flex-col pt-4 pb-2 px-4">
+            {Array.from({ length: ROWS }).map((_, r) => (
+              <div key={r} className="flex-1 flex w-full mb-2">
+                {Array.from({ length: COLS }).map((_, c) => {
+                  const healerNearby = plants.some(p => p.type === PlantType.SUNFLOWER && (Math.abs(p.row - r) + Math.abs(p.col - c) === 1));
+                  const isSelectedForPlanting = tileSelection?.row === r && tileSelection?.col === c;
+                  const isTopRows = r < 2; // Check if it's top row to position popup below
+
+                  return (
+                    <div key={c} 
+                        className={`flex-1 relative rounded-lg mx-1 transition-colors duration-200
+                          ${healerNearby ? 'bg-yellow-400/20 shadow-[0_0_15px_rgba(250,204,21,0.5)] border-2 border-yellow-300' : 'hover:bg-white/10'}
+                          ${isSelectedForPlanting ? 'bg-white/20 border-2 border-white' : ''}
+                        `}
+                        onClick={() => handleCellClick(r, c)}>
+                          <div className="absolute inset-0 border-2 border-black/5 rounded-lg pointer-events-none"></div>
+                          
+                          {/* Tile Selection Popup */}
+                          {isSelectedForPlanting && (
+                              <div className={`absolute left-1/2 -translate-x-1/2 z-[60] bg-[#5d4037] border-4 border-[#3e2723] rounded-xl p-2 flex gap-2 shadow-2xl animate-float
+                                  ${isTopRows ? 'top-[110%]' : 'bottom-[110%]'}
+                              `}>
+                                  {Object.values(PLANT_CONFIGS).map((config) => {
+                                      const canAfford = sun >= config.cost;
+                                      return (
+                                          <button 
+                                            key={config.type} 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleTilePlantSelect(config.type);
+                                            }}
+                                            className={`w-14 h-16 flex flex-col items-center justify-center rounded-lg border-2 transition-all
+                                                ${canAfford ? 'bg-[#8d6e63] border-yellow-500 hover:scale-110 hover:bg-[#a1887f]' : 'bg-stone-700 border-stone-600 opacity-60 grayscale cursor-not-allowed'}
+                                            `}
+                                          >
+                                              <div className="w-8 h-8 pointer-events-none" dangerouslySetInnerHTML={{ __html: config.svg(1) }} />
+                                              <span className={`text-[10px] font-bold ${canAfford ? 'text-white' : 'text-red-300'}`}>{config.cost}</span>
+                                          </button>
+                                      );
+                                  })}
+                                  {/* Close Button small X */}
+                                  <button onClick={(e) => { e.stopPropagation(); setTileSelection(null); }} className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs border-2 border-white shadow-md">X</button>
+                                  
+                                  {/* Triangle pointer */}
+                                  <div className={`absolute left-1/2 -translate-x-1/2 w-4 h-4 bg-[#5d4037] border-r-4 border-b-4 border-[#3e2723] transform rotate-45
+                                      ${isTopRows ? '-top-2 border-r-0 border-b-0 border-l-4 border-t-4' : '-bottom-2'}
+                                  `}></div>
+                              </div>
+                          )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
           
-          // CAP SCALING: Prevent overlapping. Max 1.2
-          const scale = Math.min(1.2, 1 + (plant.level - 1) * 0.05);
-
-          return (
-            <div key={plant.id} className="absolute pointer-events-none"
-              style={{ 
-                top: `${(plant.row / ROWS) * 100}%`, 
-                left: `${(plant.col / COLS) * 100}%`, 
-                width: `${100/COLS}%`, 
-                height: `${100/ROWS}%`,
-                marginTop: '1%' // Offset for margin in grid
-              }}>
-              
-              {/* 1. Visual Layer (Scaled) */}
-              <div className="w-full h-full flex items-center justify-center transition-transform" style={{ transform: `scale(${scale})` }}>
-                 {/* Aura for high level */}
-                 {plant.level > 2 && (
-                    <div className="absolute inset-0 bg-yellow-400/20 rounded-full blur-md animate-pulse"></div>
-                 )}
-                 <div className={`w-[90%] h-[90%] filter drop-shadow-lg ${isHit ? 'animate-hit' : ''} ${isShooting && plant.type === PlantType.PEASHOOTER ? 'animate-shoot' : ''}`} dangerouslySetInnerHTML={{ __html: cfg.svg(plant.level) }} />
-              </div>
-
-              {/* 2. UI Layer (Unscaled - Fixed relative to grid cell) */}
-              {/* HP Bar - Top Center (Unscaled), ensure visible */}
-              {plant.hp < plant.maxHp && (
-                <div className="absolute top-1 left-1/2 -translate-x-1/2 w-12 h-2 bg-stone-900 rounded-full border border-white overflow-hidden z-50 shadow-md">
-                    <div className="absolute top-0 left-0 h-full bg-green-500" style={{ width: `${hpPercent}%` }} />
-                </div>
-              )}
-              
-              {/* Level Badge - Bottom Right to avoid HUD overlap */}
-              {plant.level > 1 && (
-                <div className="absolute bottom-1 right-1 bg-yellow-400 text-yellow-900 text-[10px] px-2 py-0.5 rounded-full border border-yellow-600 font-bold z-50 shadow-sm">
-                    Lv.{plant.level}
-                </div>
-              )}
-
+          {feedbackMsg && (
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 bg-black/60 backdrop-blur-md text-white px-6 py-3 rounded-full border-2 border-white text-xl font-bold animate-float pointer-events-none shadow-xl">
+              {feedbackMsg}
             </div>
-          );
-        })}
+          )}
 
-        {zombies.map(zombie => {
-           const isHit = performance.now() - (zombie.lastHitTime || 0) < 400;
-           const isBoss = zombie.type === 'BOSS';
+          {plants.map(plant => {
+            const cfg = PLANT_CONFIGS[plant.type];
+            const isHit = performance.now() - (plant.lastHitTime || 0) < 500;
+            const isShooting = performance.now() - plant.lastActionTime < 200;
+            const hpPercent = Math.max(0, (plant.hp / plant.maxHp) * 100);
+            const scale = Math.min(1.2, 1 + (plant.level - 1) * 0.05);
 
-           let scale = 1.1; // Base scale up
-           if (zombie.type === 'BUCKET') scale = 1.3;
-           if (zombie.type === 'CONE') scale = 1.2;
-           if (isBoss) scale = 1; // Boss is already big in SVG or handle via CSS height
-           
-           if (!isBoss) {
-               scale += Math.min(0.5, (wave - 1) * 0.05);
-           }
-
-           // Boss takes up 2 rows visually
-           const heightPercent = isBoss ? (100/ROWS) * 2 : (100/ROWS);
-
-           return (
-            <div key={zombie.id} className="absolute flex flex-col items-center justify-center transition-transform duration-100 ease-linear pointer-events-none"
-              style={{ 
-                  top: `${(zombie.row / ROWS) * 100}%`, 
-                  left: `${zombie.x}%`, 
+            return (
+              <div key={plant.id} className="absolute pointer-events-none"
+                style={{ 
+                  top: `${(plant.row / ROWS) * 100}%`, 
+                  left: `${(plant.col / COLS) * 100}%`, 
                   width: `${100/COLS}%`, 
-                  height: `${heightPercent}%`, 
-                  transform: 'translateX(-50%)', 
-                  marginTop: isBoss ? '0' : '-2%',
-                  zIndex: isBoss ? 30 : 10 // Boss renders on top
-              }}>
-              
-              {/* Zombie HP Bar - Positioned relative to the center using left-1/2 + margin */}
-              <div className="absolute left-1/2 ml-3 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-stone-900 border border-stone-600 rounded-full overflow-hidden z-20 shadow-sm flex flex-col justify-end">
-                  <div className="w-full bg-red-500" style={{ height: `${Math.max(0, (zombie.hp / zombie.maxHp) * 100)}%` }} />
+                  height: `${100/ROWS}%`,
+                  marginTop: '1%'
+                }}>
+                <div className="w-full h-full flex items-center justify-center transition-transform" style={{ transform: `scale(${scale})` }}>
+                  {plant.level > 2 && (
+                      <div className="absolute inset-0 bg-yellow-400/20 rounded-full blur-md animate-pulse"></div>
+                  )}
+                  <div className={`w-[90%] h-[90%] filter drop-shadow-lg ${isHit ? 'animate-hit' : ''} ${isShooting && plant.type === PlantType.PEASHOOTER ? 'animate-shoot' : ''}`} dangerouslySetInnerHTML={{ __html: cfg.svg(plant.level) }} />
+                </div>
+                {plant.hp < plant.maxHp && (
+                  <div className="absolute top-1 left-1/2 -translate-x-1/2 w-12 h-2 bg-stone-900 rounded-full border border-white overflow-hidden z-50 shadow-md">
+                      <div className="absolute top-0 left-0 h-full bg-green-500" style={{ width: `${hpPercent}%` }} />
+                  </div>
+                )}
+                {plant.level > 1 && (
+                  <div className="absolute bottom-1 right-1 bg-yellow-400 text-yellow-900 text-[10px] px-2 py-0.5 rounded-full border border-yellow-600 font-bold z-50 shadow-sm">
+                      Lv.{plant.level}
+                  </div>
+                )}
               </div>
+            );
+          })}
 
-              <div 
-                className={`w-full h-full transform ${zombie.x % 2 > 1 ? 'scale-x-[-1]' : ''} ${isHit ? 'animate-hit' : (zombie.isEating ? 'animate-attack' : 'animate-walk')}`} 
-                style={{ transformOrigin: 'bottom center', transform: `scale(${scale}) ${zombie.x % 2 > 1 ? 'scaleX(-1)' : ''}` }}
-                dangerouslySetInnerHTML={{ __html: zombie.svg }} 
+          {zombies.map(zombie => {
+            const isHit = performance.now() - (zombie.lastHitTime || 0) < 300; 
+            const isBoss = zombie.type === 'BOSS';
+
+            let scale = 1.1; 
+            if (zombie.type === 'BUCKET') scale = 1.3;
+            if (zombie.type === 'CONE') scale = 1.2;
+            if (isBoss) scale = 1; 
+            
+            if (!isBoss) {
+                scale += Math.min(0.5, (wave - 1) * 0.05);
+            }
+
+            const heightPercent = isBoss ? (100/ROWS) * 2 : (100/ROWS);
+            const hitFilter = isHit ? 'brightness(2) sepia(1) hue-rotate(-50deg)' : (isFrozen ? 'brightness(0.8) contrast(1.2)' : 'none');
+            const dyingFilter = zombie.isDying ? 'grayscale(1) brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none';
+            const freezeShadow = isFrozen && !zombie.isDying ? 'drop-shadow(0 0 5px #22d3ee)' : '';
+
+            return (
+              <div key={zombie.id} className="absolute flex flex-col items-center justify-center transition-transform duration-100 ease-linear pointer-events-none"
+                style={{ 
+                    top: `${(zombie.row / ROWS) * 100}%`, 
+                    left: `${zombie.x}%`, 
+                    width: `${100/COLS}%`, 
+                    height: `${heightPercent}%`, 
+                    transform: 'translateX(-50%)', 
+                    marginTop: isBoss ? '0' : '-2%',
+                    zIndex: isBoss ? 30 : 10,
+                    filter: freezeShadow // Apply shadow to container
+                }}>
+                {!zombie.isDying && (
+                  <div className="absolute left-1/2 ml-1 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-stone-900 border border-stone-600 rounded-full overflow-hidden z-20 shadow-sm flex flex-col justify-end">
+                      <div className="w-full bg-red-500" style={{ height: `${Math.max(0, (zombie.hp / zombie.maxHp) * 100)}%` }} />
+                  </div>
+                )}
+                <div 
+                  className={`w-full h-full transform ${zombie.x % 2 > 1 ? 'scale-x-[-1]' : ''} 
+                      ${zombie.isDying ? 'animate-dying' : (isHit ? 'animate-hit' : (zombie.isEating ? 'animate-attack' : (isFrozen ? '' : 'animate-walk')))}
+                  `} 
+                  style={{ 
+                      transformOrigin: 'bottom center', 
+                      transform: `scale(${scale}) ${zombie.x % 2 > 1 ? 'scaleX(-1)' : ''}`,
+                      filter: zombie.isDying ? dyingFilter : hitFilter,
+                      opacity: zombie.isDying ? 0.7 : 1
+                  }}
+                  dangerouslySetInnerHTML={{ __html: zombie.svg }} 
+                />
+              </div>
+            );
+          })}
+
+          {projectiles.map(proj => {
+            let color1 = '#bbf7d0'; 
+            let color2 = '#22c55e';
+            if (proj.level === 2) { color1 = '#93c5fd'; color2 = '#3b82f6'; } 
+            if (proj.level >= 3) { color1 = '#fca5a5'; color2 = '#ef4444'; } 
+
+            return (
+            <div key={proj.id} 
+              className={`absolute rounded-full shadow-[0_0_10px_${color2}] z-20 ${proj.level > 2 ? 'w-6 h-6 md:w-8 md:h-8' : 'w-4 h-4 md:w-6 md:h-6'}`}
+              style={{ 
+                top: `${(proj.row / ROWS) * 100 + 10}%`, 
+                left: `${proj.x}%`, 
+                transform: 'translate(-50%, -50%)',
+                background: `radial-gradient(circle at 30% 30%, ${color1}, ${color2})`
+              }} 
+            />
+          );})}
+
+          {floatingSuns.map(s => (
+            <button key={s.id} onClick={(e) => { e.stopPropagation(); collectSun(s.id, s.value); }}
+              className="absolute cursor-pointer z-30 transition-transform hover:scale-110 active:scale-90"
+              style={{ left: `${s.x}%`, top: `${s.y}%` }}>
+              <svg width="60" height="60" viewBox="0 0 100 100" className="animate-[spin_10s_linear_infinite]">
+                  <defs>
+                      <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
+                          <stop offset="50%" stopColor="#fef08a" />
+                          <stop offset="100%" stopColor="#eab308" />
+                      </radialGradient>
+                  </defs>
+                  <circle cx="50" cy="50" r="30" fill="url(#sunGrad)" stroke="#ca8a04" strokeWidth="2" />
+                  <path d="M50 10 L50 0 M50 90 L50 100 M10 50 L0 50 M90 50 L100 50 M22 22 L15 15 M78 78 L85 85 M22 78 L15 85 M78 22 L85 15" stroke="#eab308" strokeWidth="4" strokeLinecap="round" />
+              </svg>
+            </button>
+          ))}
+
+          {visualCoins.map(c => (
+              <div key={c.id} className="absolute w-12 h-12 animate-[spin_0.5s_linear_infinite]"
+                   style={{ left: `${c.x}%`, top: `${c.y}%`, transition: 'top 1s ease-in, opacity 1s ease-in' }}>
+                   <div dangerouslySetInnerHTML={{ __html: SVG_COIN }} />
+              </div>
+          ))}
+
+          {/* --- STATUS GAUGES --- */}
+          <div className="absolute bottom-4 right-4 z-40 flex items-center gap-4">
+            {/* REVENGE GAUGE */}
+            <PieGauge 
+                value={wrongCount * (100/REVENGE_THRESHOLD)} 
+                max={100} 
+                label="REVENGE" 
+                icon="🔥" 
+                type="REVENGE" 
+                isActive={showRevenge} 
               />
-            </div>
-          );
-        })}
+            
+            {/* FREEZE GAUGE */}
+            <PieGauge 
+                value={freezeCharge} 
+                max={100} 
+                label="FREEZE" 
+                icon="❄️" 
+                type="FREEZE" 
+                isActive={isFrozen} 
+            />
+          </div>
 
-        {projectiles.map(proj => {
-          let color1 = '#bbf7d0'; // Greenish default
-          let color2 = '#22c55e';
-          if (proj.level === 2) { color1 = '#93c5fd'; color2 = '#3b82f6'; } // Blue plasma
-          if (proj.level >= 3) { color1 = '#fca5a5'; color2 = '#ef4444'; } // Red fire
-
-          return (
-          <div key={proj.id} 
-             className={`absolute rounded-full shadow-[0_0_10px_${color2}] z-20 ${proj.level > 2 ? 'w-6 h-6 md:w-8 md:h-8' : 'w-4 h-4 md:w-6 md:h-6'}`}
-             style={{ 
-               top: `${(proj.row / ROWS) * 100 + 10}%`, 
-               left: `${proj.x}%`, 
-               transform: 'translate(-50%, -50%)',
-               background: `radial-gradient(circle at 30% 30%, ${color1}, ${color2})`
-             }} 
-          />
-        );})}
-
-        {floatingSuns.map(s => (
-          <button key={s.id} onClick={(e) => { e.stopPropagation(); collectSun(s.id, s.value); }}
-            className="absolute cursor-pointer z-30 transition-transform hover:scale-110 active:scale-90"
-            style={{ left: `${s.x}%`, top: `${s.y}%` }}>
-            {/* Custom Sun Graphic instead of emoji */}
-            <svg width="60" height="60" viewBox="0 0 100 100" className="animate-[spin_10s_linear_infinite]">
-                <defs>
-                    <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
-                        <stop offset="50%" stopColor="#fef08a" />
-                        <stop offset="100%" stopColor="#eab308" />
-                    </radialGradient>
-                </defs>
-                <circle cx="50" cy="50" r="30" fill="url(#sunGrad)" stroke="#ca8a04" strokeWidth="2" />
-                <path d="M50 10 L50 0 M50 90 L50 100 M10 50 L0 50 M90 50 L100 50 M22 22 L15 15 M78 78 L85 85 M22 78 L15 85 M78 22 L85 15" stroke="#eab308" strokeWidth="4" strokeLinecap="round" />
-            </svg>
-          </button>
-        ))}
+        </div>
       </div>
+      {/* --- END OF GAME WORLD LAYER --- */}
 
-      {activeMathProblem && selectedPlantType && (
-        <MathModal plant={PLANT_CONFIGS[selectedPlantType]} problem={activeMathProblem.problem} onSolve={handleMathResult} onClose={() => { setActiveMathProblem(null); setSelectedPlantType(null); }} />
+      {/* --- UI & MODAL LAYER (Unaffected by Grayscale) --- */}
+      
+      {/* Lightning Flash Effect */}
+      {flashLightning && (
+          <div className="absolute inset-0 bg-white z-[100] animate-flash pointer-events-none"></div>
       )}
-      {activePlantInteraction && (
-        <UpgradeModal plant={activePlantInteraction} availableTables={selectedTables} onUpgrade={handleUpgrade} onHeal={handleHeal} onRemove={handleRemove} onClose={() => setActivePlantInteraction(null)} />
+
+      {/* REVENGE SUCCESS OVERLAY */}
+      {showRevengeSuccess && (
+        <div className="absolute inset-0 z-[90] flex items-center justify-center overflow-hidden pointer-events-none">
+            {/* Rotating sunburst bg */}
+            <div className="absolute inset-0 bg-yellow-400/20 animate-[spin_10s_linear_infinite]" 
+                 style={{backgroundImage: 'conic-gradient(from 0deg, transparent 0 20deg, #fbbf24 20deg 40deg, transparent 40deg 360deg)'}}>
+            </div>
+            <h1 className="text-6xl md:text-9xl text-yellow-300 font-black drop-shadow-[0_10px_0_#000] text-center animate-bounce z-10 border-4 border-white p-4 bg-black/50 backdrop-blur-sm rounded-xl transform rotate-3">
+                REVENGE<br/>LIGHTNING!
+            </h1>
+        </div>
+      )}
+
+      {isFrozen && (
+         <div className="absolute inset-0 pointer-events-none z-30 bg-cyan-500/20 mix-blend-overlay border-8 border-cyan-400/50"></div>
+      )}
+
+      {/* PAUSE OVERLAY IS GONE, REPLACED BY REPORT MODAL DIRECTLY */}
+      
+      {/* REPORT MODAL */}
+      {showReport && (
+        <ReportModal 
+            history={mathHistory} 
+            totalCoins={totalCoins} 
+            totalScore={score} 
+            onClose={() => setShowReport(false)}
+            onLoadSave={handleLoadSave}
+        />
+      )}
+
+      {/* UPDATED CONDITION: Show modal if activeMathProblem exists. Don't check selectedPlantType here because tile-click bypasses it. */}
+      {activeMathProblem && !showRevenge && (
+        <MathModal 
+            plant={PLANT_CONFIGS[activeMathProblem.plantType]} 
+            problem={activeMathProblem.problem} 
+            onSolve={handleMathResult} 
+            onAttempt={(ans, correct) => handleMathAttempt(activeMathProblem.problem, ans, correct)}
+            onClose={() => { setActiveMathProblem(null); setSelectedPlantType(null); }} 
+        />
+      )}
+      {activePlantInteraction && !showRevenge && (
+        <UpgradeModal 
+            plant={activePlantInteraction} 
+            availableTables={selectedTables} 
+            onUpgrade={handleUpgrade} 
+            onHeal={handleHeal} 
+            onRemove={handleRemove} 
+            onAttempt={handleMathAttempt}
+            onClose={() => setActivePlantInteraction(null)} 
+        />
+      )}
+      {showRevenge && (
+          <RevengeModal 
+             wrongHistory={mathHistory.filter(h => !h.isCorrect)}
+             availableTables={selectedTables}
+             onComplete={handleRevengeComplete}
+          />
       )}
     </div>
   );

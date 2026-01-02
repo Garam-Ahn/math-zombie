@@ -1,6 +1,8 @@
+
 export enum GameStatus {
   TITLE = 'TITLE', // New Title Screen
   MENU = 'MENU',
+  STUDY = 'STUDY', // New Study Mode (Zen Garden)
   LOADING_LEVEL = 'LOADING_LEVEL',
   PLAYING = 'PLAYING',
   GAME_OVER = 'GAME_OVER',
@@ -52,6 +54,9 @@ export interface ZombieEntity {
   svg: string;
   lastHitTime?: number; // For hit animation
   lastAttackTime: number; // For attack interval
+  isFrozen?: boolean; // New status effect
+  isDying?: boolean; // New: For death animation
+  deathTime?: number; // New: When did it start dying
 }
 
 export interface ProjectileEntity {
@@ -68,6 +73,16 @@ export interface MathProblem {
   answer: number;
 }
 
+// New Interface for Data Tracking
+export interface MathHistoryItem {
+  timestamp: number;
+  factorA: number;
+  factorB: number;
+  userAnswer: number; // What the user typed
+  isCorrect: boolean;
+  timeTaken?: number; // Optional: could track speed later
+}
+
 export interface SunEntity {
   id: string;
   x: number;
@@ -76,9 +91,54 @@ export interface SunEntity {
   createdAt: number; // For auto-collection
 }
 
+export interface VisualCoin {
+  id: string;
+  x: number;
+  y: number;
+  value: number;
+  createdAt: number;
+}
+
+export interface SaveData {
+  totalCoins: number;
+  totalScore: number;
+  historySummary: Record<string, { correct: number, attempts: number }>;
+}
+
 // Background Tile Type
 export interface Tile {
   row: number;
   col: number;
   variant: 0 | 1 | 2; // 0: Grass, 1: Weed, 2: Dirt patch
+}
+
+// --- FUTURE FIREBASE INTEGRATION TYPES ---
+
+export interface MathStat {
+  factorA: number;
+  factorB: number;
+  attempts: number;
+  correct: number;
+  avgTimeMs: number;
+  lastAttemptAt: number;
+  status: 'NEW' | 'LEARNING' | 'MASTERED' | 'STRUGGLING'; // For parents to see
+}
+
+export interface DecorationItem {
+  id: string;
+  name: string;
+  type: 'SKIN_PLANT' | 'SKIN_BG' | 'AURA' | 'ACCESSORY';
+  cost: number; // Currency cost
+  isOwned: boolean;
+  isEquipped: boolean;
+  assetUrl?: string; // Or SVG string
+}
+
+export interface UserProfile {
+  uid: string;
+  displayName: string;
+  totalScore: number; // Cumulative score -> Currency
+  currency: number; // Spendable points
+  inventory: DecorationItem[];
+  mathStats: Record<string, MathStat>; // Key e.g., "2x9"
 }

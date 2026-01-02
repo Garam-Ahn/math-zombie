@@ -1,15 +1,18 @@
+
 import React, { useState, useEffect } from 'react';
 import { PlantConfig, MathProblem } from '../types';
 import { audio } from '../services/audioService';
+import { getNumberColorClass } from '../constants';
 
 interface MathModalProps {
   plant: PlantConfig;
   problem: MathProblem;
   onSolve: (success: boolean) => void;
+  onAttempt: (answer: number, isCorrect: boolean) => void; // New prop
   onClose: () => void;
 }
 
-export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, onClose }) => {
+export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, onAttempt, onClose }) => {
   const [input, setInput] = useState('');
   const [shake, setShake] = useState(false);
   const [isSolved, setIsSolved] = useState(false);
@@ -30,7 +33,12 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
   const handleSubmit = () => {
     if (isSolved) return;
     const val = parseInt(input, 10);
-    if (val === problem.answer) {
+    const correct = val === problem.answer;
+    
+    // Record Attempt
+    onAttempt(val, correct);
+
+    if (correct) {
       setIsSolved(true);
       onSolve(true);
       audio.playCorrect();
@@ -49,7 +57,8 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
         handleNumberClick(parseInt(e.key));
       } else if (e.key === 'Backspace') {
         handleBackspace();
-      } else if (e.key === 'Enter') {
+      } else if (e.key === 'Enter' || e.code === 'Space') {
+        e.preventDefault(); // Prevent scrolling for space
         handleSubmit();
       } else if (e.key === 'Escape') {
         onClose();
@@ -94,12 +103,13 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
                   <div className="absolute top-12 left-0 w-full h-[1px] bg-blue-200 opacity-50"></div>
                   <div className="absolute top-20 left-0 w-full h-[1px] bg-blue-200 opacity-50"></div>
                   
-                  <div className="text-4xl sm:text-5xl md:text-6xl text-stone-800 flex justify-center items-center gap-2 flex-wrap z-10 font-bold">
-                      <span>{problem.factorA}</span>
+                  <div className="text-4xl sm:text-5xl md:text-6xl text-stone-800 flex justify-center items-center gap-2 flex-wrap z-10 font-black">
+                      <span className={getNumberColorClass(problem.factorA)}>{problem.factorA}</span>
                       <span className="text-stone-400">×</span>
-                      <span>{problem.factorB}</span>
+                      <span className={getNumberColorClass(problem.factorB)}>{problem.factorB}</span>
                       <span className="text-stone-400">=</span>
-                      <span className={`min-w-[60px] border-b-4 border-stone-800 ${input ? 'text-blue-600' : 'text-stone-300'}`}>
+                      {/* USER INPUT: Changed to Black */}
+                      <span className={`min-w-[60px] border-b-4 border-stone-800 text-black`}>
                       {input || "?"}
                       </span>
                   </div>
@@ -114,11 +124,11 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
                     key={num}
                     onClick={() => handleNumberClick(num)}
                     disabled={isSolved}
-                    className={`glossy-btn bg-green-500 text-white text-2xl sm:text-3xl py-3 shadow-md
+                    className={`glossy-btn bg-green-500 text-black text-2xl sm:text-3xl py-3 shadow-md
                         ${isSolved ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-105'}
                     `}
                     >
-                    {num}
+                    <span style={{ textShadow: 'none' }}>{num}</span>
                     </button>
                 ))}
                 <button 
@@ -133,11 +143,11 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
                 <button 
                     onClick={() => handleNumberClick(0)} 
                     disabled={isSolved}
-                    className={`glossy-btn bg-green-500 text-white text-2xl sm:text-3xl py-3 shadow-md
+                    className={`glossy-btn bg-green-500 text-black text-2xl sm:text-3xl py-3 shadow-md
                     ${isSolved ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-105'}
                     `}
                 >
-                    0
+                    <span style={{ textShadow: 'none' }}>0</span>
                 </button>
                 <button 
                     onClick={handleSubmit} 

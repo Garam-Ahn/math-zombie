@@ -1,7 +1,21 @@
+
 // High Fidelity Vector Assets with Gradients
 // Uses local definitions within SVGs to ensure portability
 
 const SVG_START = (content: string) => `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
+
+export const SVG_COIN = SVG_START(`
+<defs>
+  <linearGradient id="coinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" style="stop-color:#fef08a;stop-opacity:1" />
+    <stop offset="50%" style="stop-color:#eab308;stop-opacity:1" />
+    <stop offset="100%" style="stop-color:#a16207;stop-opacity:1" />
+  </linearGradient>
+</defs>
+<circle cx="50" cy="50" r="40" fill="url(#coinGrad)" stroke="#854d0e" stroke-width="4" />
+<text x="50" y="65" font-family="monospace" font-weight="bold" font-size="50" text-anchor="middle" fill="#854d0e">$</text>
+<circle cx="50" cy="50" r="30" fill="none" stroke="#fde047" stroke-width="2" opacity="0.5" />
+`);
 
 // --- PLANTS ---
 

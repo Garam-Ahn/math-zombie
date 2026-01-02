@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -57,19 +58,40 @@
 
       /* Improved Knockback: Tilt back and flash white */
       @keyframes hitFlash {
-        0% { filter: brightness(1); transform: translateX(-50%) rotate(0deg); }
-        20% { filter: brightness(5) sepia(0); transform: translateX(-40%) rotate(15deg); } 
-        100% { filter: brightness(1); transform: translateX(-50%) rotate(0deg); }
+        0% { filter: brightness(1); transform: translateX(-50%) rotate(0deg) scale(1); }
+        20% { filter: brightness(3) sepia(0); transform: translateX(-45%) rotate(15deg) scale(0.95); } 
+        100% { filter: brightness(1); transform: translateX(-50%) rotate(0deg) scale(1); }
       }
-      .animate-hit { animation: hitFlash 0.4s ease-out; }
+      .animate-hit { animation: hitFlash 0.3s ease-out; }
+
+      /* Dying Shake Animation */
+      @keyframes shakeDying {
+        0% { transform: translateX(-50%) rotate(0deg); }
+        25% { transform: translateX(-52%) rotate(-5deg); }
+        50% { transform: translateX(-48%) rotate(5deg); }
+        75% { transform: translateX(-52%) rotate(-5deg); }
+        100% { transform: translateX(-50%) rotate(0deg); }
+      }
+      .animate-dying { animation: shakeDying 0.2s infinite; }
+
+      /* Lightning Flash */
+      @keyframes lightningFlash {
+        0% { opacity: 0; }
+        10% { opacity: 1; }
+        20% { opacity: 0; }
+        30% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+      .animate-flash { animation: lightningFlash 0.5s ease-out forwards; }
 
       /* UI Textures */
       .wood-panel {
-        background-color: #5d4037;
+        /* LIGHTER BROWN for better contrast with dark text */
+        background-color: #8d6e63; 
         background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 8px),
-                          linear-gradient(to bottom, #5d4037, #3e2723);
-        box-shadow: inset 0 0 10px #281815, 0 5px 15px rgba(0,0,0,0.5);
-        border: 4px solid #3e2723;
+                          linear-gradient(to bottom, #8d6e63, #6d4c41);
+        box-shadow: inset 0 0 10px #3e2723, 0 5px 15px rgba(0,0,0,0.5);
+        border: 4px solid #4e342e;
         border-radius: 12px;
       }
 
