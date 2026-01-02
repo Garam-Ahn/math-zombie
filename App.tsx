@@ -91,14 +91,13 @@ export default function App() {
   }, [status, isPaused]);
 
   const createZombie = (currentWave: number): ZombieEntity => {
-    // Determine variants based on wave
     const possibleVariants: (typeof ZOMBIE_VARIANTS)[number][] = [ZOMBIE_VARIANTS[0]];
     if (currentWave >= 3) possibleVariants.push(ZOMBIE_VARIANTS[1]);
     if (currentWave >= 6) possibleVariants.push(ZOMBIE_VARIANTS[2]);
     
     // Boss Spawn Logic (Wave 8+)
     let variant = possibleVariants[Math.floor(Math.random() * possibleVariants.length)];
-    if (currentWave >= 8 && Math.random() < 0.15) { // 15% chance for Boss
+    if (currentWave >= 8 && Math.random() < 0.15) { 
        variant = ZOMBIE_VARIANTS[3]; // BOSS
     }
 
@@ -238,9 +237,8 @@ export default function App() {
               const radius = 1.5; 
               currentZombies = currentZombies.map(z => {
                 const zCol = (z.x / 100) * COLS;
-                // Basic distance check
-                const rowDist = Math.abs(z.row - plant.row);
                 // Boss logic for distance (Boss center is kinda between row and row+1)
+                const rowDist = Math.abs(z.row - plant.row);
                 const effectiveRowDist = z.type === 'BOSS' ? Math.min(Math.abs(z.row - plant.row), Math.abs((z.row + 1) - plant.row)) : rowDist;
 
                 if (effectiveRowDist <= 1 && Math.abs(zCol - plant.col) <= radius) {
@@ -296,8 +294,7 @@ export default function App() {
             let eating = false;
             if (!isStunned) {
                 // Eating Logic
-                // Normal: Checks p.row === z.row
-                // Boss: Checks p.row === z.row OR p.row === z.row + 1
+                // Boss eats plants in row AND row+1
                 const plantsToEat = updatedPlants.filter(p => {
                     const rowMatch = (p.row === z.row) || (z.type === 'BOSS' && p.row === z.row + 1);
                     const colMatch = p.col === Math.floor((z.x / 100) * COLS);
@@ -656,11 +653,11 @@ export default function App() {
           const isShooting = performance.now() - plant.lastActionTime < 200;
           const hpPercent = Math.max(0, (plant.hp / plant.maxHp) * 100);
           
-          // Cap scaling so it doesn't overlap neighbors too much
+          // CAP SCALING: Prevent overlapping. Max 1.2
           const scale = Math.min(1.2, 1 + (plant.level - 1) * 0.05);
 
           return (
-            <div key={plant.id} className="absolute flex items-center justify-center pointer-events-none"
+            <div key={plant.id} className="absolute pointer-events-none"
               style={{ 
                 top: `${(plant.row / ROWS) * 100}%`, 
                 left: `${(plant.col / COLS) * 100}%`, 
@@ -668,35 +665,37 @@ export default function App() {
                 height: `${100/ROWS}%`,
                 marginTop: '1%' // Offset for margin in grid
               }}>
-              <div className="relative w-[90%] h-[90%] flex items-center justify-center transition-transform" style={{ transform: `scale(${scale})` }}>
-                 
+              
+              {/* 1. Visual Layer (Scaled) */}
+              <div className="w-full h-full flex items-center justify-center transition-transform" style={{ transform: `scale(${scale})` }}>
                  {/* Aura for high level */}
                  {plant.level > 2 && (
                     <div className="absolute inset-0 bg-yellow-400/20 rounded-full blur-md animate-pulse"></div>
                  )}
-
-                 <div className={`w-full h-full filter drop-shadow-lg ${isHit ? 'animate-hit' : ''} ${isShooting && plant.type === PlantType.PEASHOOTER ? 'animate-shoot' : ''}`} dangerouslySetInnerHTML={{ __html: cfg.svg(plant.level) }} />
-                 
-                 {/* HP Bar - Properly positioned above */}
-                 {plant.hp < plant.maxHp && (
-                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-2 bg-stone-900 rounded-full border border-white overflow-hidden z-20">
-                      <div className="absolute top-0 left-0 h-full bg-green-500" style={{ width: `${hpPercent}%` }} />
-                   </div>
-                 )}
-                 
-                 {plant.level > 1 && (
-                    <div className="absolute -top-4 -right-2 bg-yellow-400 text-yellow-900 text-[10px] px-2 py-0.5 rounded-full border border-yellow-600 font-bold z-20 shadow-sm">
-                        Lv.{plant.level}
-                    </div>
-                 )}
+                 <div className={`w-[90%] h-[90%] filter drop-shadow-lg ${isHit ? 'animate-hit' : ''} ${isShooting && plant.type === PlantType.PEASHOOTER ? 'animate-shoot' : ''}`} dangerouslySetInnerHTML={{ __html: cfg.svg(plant.level) }} />
               </div>
+
+              {/* 2. UI Layer (Unscaled - Fixed relative to grid cell) */}
+              {/* HP Bar - Top Center (Unscaled), ensure visible */}
+              {plant.hp < plant.maxHp && (
+                <div className="absolute top-1 left-1/2 -translate-x-1/2 w-12 h-2 bg-stone-900 rounded-full border border-white overflow-hidden z-50 shadow-md">
+                    <div className="absolute top-0 left-0 h-full bg-green-500" style={{ width: `${hpPercent}%` }} />
+                </div>
+              )}
+              
+              {/* Level Badge - Bottom Right to avoid HUD overlap */}
+              {plant.level > 1 && (
+                <div className="absolute bottom-1 right-1 bg-yellow-400 text-yellow-900 text-[10px] px-2 py-0.5 rounded-full border border-yellow-600 font-bold z-50 shadow-sm">
+                    Lv.{plant.level}
+                </div>
+              )}
+
             </div>
           );
         })}
 
         {zombies.map(zombie => {
            const isHit = performance.now() - (zombie.lastHitTime || 0) < 400;
-           const isStunned = isHit; 
            const isBoss = zombie.type === 'BOSS';
 
            let scale = 1.1; // Base scale up
@@ -723,12 +722,13 @@ export default function App() {
                   zIndex: isBoss ? 30 : 10 // Boss renders on top
               }}>
               
-              <div className="w-12 h-2 bg-stone-900 mb-1 border border-stone-600 rounded-full overflow-hidden z-20 shadow-sm">
-                  <div className="h-full bg-red-500" style={{ width: `${Math.max(0, (zombie.hp / zombie.maxHp) * 100)}%` }} />
+              {/* Zombie HP Bar - Positioned relative to the center using left-1/2 + margin */}
+              <div className="absolute left-1/2 ml-3 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-stone-900 border border-stone-600 rounded-full overflow-hidden z-20 shadow-sm flex flex-col justify-end">
+                  <div className="w-full bg-red-500" style={{ height: `${Math.max(0, (zombie.hp / zombie.maxHp) * 100)}%` }} />
               </div>
 
               <div 
-                className={`w-full h-full transform ${zombie.x % 2 > 1 ? 'scale-x-[-1]' : ''} ${isStunned ? 'animate-hit' : (zombie.isEating ? 'animate-attack' : 'animate-walk')}`} 
+                className={`w-full h-full transform ${zombie.x % 2 > 1 ? 'scale-x-[-1]' : ''} ${isHit ? 'animate-hit' : (zombie.isEating ? 'animate-attack' : 'animate-walk')}`} 
                 style={{ transformOrigin: 'bottom center', transform: `scale(${scale}) ${zombie.x % 2 > 1 ? 'scaleX(-1)' : ''}` }}
                 dangerouslySetInnerHTML={{ __html: zombie.svg }} 
               />

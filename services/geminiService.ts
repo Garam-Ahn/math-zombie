@@ -1,7 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize Gemini
-// NOTE: We assume process.env.API_KEY is available.
+// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateZombieNote = async (table: number): Promise<string> => {

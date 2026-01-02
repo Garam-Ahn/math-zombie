@@ -23,7 +23,7 @@ export const PLANT_CONFIGS: Record<PlantType, PlantConfig> = {
     cost: 50,
     hp: 100,
     damage: 20,
-    cooldown: 3000, // NERFED: Slower fire rate to force math play
+    cooldown: 3500, // NERFED: Slower fire rate (3.5s) to force upgrades/math
     svg: SVG_PEASHOOTER,
     color: "bg-green-500"
   },
@@ -60,7 +60,7 @@ export const PLANT_CONFIGS: Record<PlantType, PlantConfig> = {
   }
 };
 
-// Boss added. HP is high.
+// Boss added. HP is high. Takes 2 rows.
 export const ZOMBIE_VARIANTS = [
   { type: 'NORMAL', hp: 60, speed: 0.05, damage: 15, attackSpeed: 1000, svg: SVG_ZOMBIE_NORMAL }, 
   { type: 'CONE', hp: 120, speed: 0.06, damage: 15, attackSpeed: 1000, svg: SVG_ZOMBIE_CONE },

@@ -9,6 +9,7 @@
     <meta name="theme-color" content="#4a2c2a">
     <link rel="manifest" href="/manifest.json">
     <title>Math vs Zombies</title>
+    <!-- We keep CDN for Tailwind to keep it simple, but in a real prod app, installing it via postcss is better. -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Titan One font for that "Mobile Game" cartoon look -->
     <link href="https://fonts.googleapis.com/css2?family=Titan+One&display=swap" rel="stylesheet">
@@ -20,10 +21,9 @@
         background-color: #2a2a2a;
       }
       
-      /* Smooth vectors instead of pixels */
       img, svg {
-        image-rendering: auto; /* High quality */
-        filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.3)); /* Global depth */
+        image-rendering: auto;
+        filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.3));
       }
 
       /* Animations */
@@ -55,13 +55,13 @@
       }
       .animate-shoot { animation: plantShoot 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
-      /* Improved Knockback: No scaling up, just tilt back and flash */
+      /* Improved Knockback: Tilt back and flash white */
       @keyframes hitFlash {
         0% { filter: brightness(1); transform: translateX(-50%) rotate(0deg); }
-        10% { filter: brightness(10) sepia(1); transform: translateX(-40%) rotate(15deg); } /* Flash White/Yellow & Tilt Back */
+        20% { filter: brightness(5) sepia(0); transform: translateX(-40%) rotate(15deg); } 
         100% { filter: brightness(1); transform: translateX(-50%) rotate(0deg); }
       }
-      .animate-hit { animation: hitFlash 0.3s ease-out; }
+      .animate-hit { animation: hitFlash 0.4s ease-out; }
 
       /* UI Textures */
       .wood-panel {
@@ -110,17 +110,19 @@
       }
       @media screen and (orientation: portrait) {
         #rotate-warning {
-          display: flex;
+          display: flex !important;
         }
       }
     </style>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+    "react": "https://esm.sh/react@^19.2.3",
+    "vite": "https://esm.sh/vite@^7.3.0"
   }
 }
 </script>
@@ -131,10 +133,11 @@
     
     <!-- Rotate Warning Overlay -->
     <div id="rotate-warning" class="fixed inset-0 z-[100] bg-black flex-col items-center justify-center text-center p-8">
-      <div class="text-6xl mb-4">🔄</div>
+      <div class="text-6xl mb-4 animate-bounce">🔄</div>
       <h1 class="text-3xl text-yellow-400 font-bold mb-4">가로로 돌려주세요!</h1>
       <p class="text-stone-300">이 게임은 가로 모드에 최적화되어 있습니다.</p>
     </div>
-  <script type="module" src="/index.tsx"></script>
-</body>
+
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>
