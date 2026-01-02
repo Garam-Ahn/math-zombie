@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Math Zombies">
+    <meta name="theme-color" content="#4a2c2a">
+    <link rel="manifest" href="/manifest.json">
+    <title>Math vs Zombies</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Titan One font for that "Mobile Game" cartoon look -->
+    <link href="https://fonts.googleapis.com/css2?family=Titan+One&display=swap" rel="stylesheet">
+    <style>
+      body {
+        overscroll-behavior: none;
+        touch-action: none;
+        font-family: 'Titan One', cursive;
+        background-color: #2a2a2a;
+      }
+      
+      /* Smooth vectors instead of pixels */
+      img, svg {
+        image-rendering: auto; /* High quality */
+        filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.3)); /* Global depth */
+      }
+
+      /* Animations */
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-8px); }
+        100% { transform: translateY(0px); }
+      }
+      .animate-float { animation: float 3s ease-in-out infinite; }
+
+      @keyframes zombieWalk {
+        0% { transform: translateX(-50%) rotate(-3deg); }
+        50% { transform: translateX(-50%) translateY(-5px) rotate(3deg); }
+        100% { transform: translateX(-50%) rotate(-3deg); }
+      }
+      .animate-walk { animation: zombieWalk 1.2s infinite linear; }
+
+      @keyframes zombieAttack {
+        0% { transform: translateX(-50%) scale(1); }
+        40% { transform: translateX(-60%) scale(1.1); }
+        100% { transform: translateX(-50%) scale(1); }
+      }
+      .animate-attack { animation: zombieAttack 0.8s infinite; }
+
+      @keyframes plantShoot {
+        0% { transform: scale(1); }
+        20% { transform: scale(0.9, 1.1) translateX(-5px); } /* Squash & Stretch */
+        100% { transform: scale(1); }
+      }
+      .animate-shoot { animation: plantShoot 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+      /* Improved Knockback: No scaling up, just tilt back and flash */
+      @keyframes hitFlash {
+        0% { filter: brightness(1); transform: translateX(-50%) rotate(0deg); }
+        10% { filter: brightness(10) sepia(1); transform: translateX(-40%) rotate(15deg); } /* Flash White/Yellow & Tilt Back */
+        100% { filter: brightness(1); transform: translateX(-50%) rotate(0deg); }
+      }
+      .animate-hit { animation: hitFlash 0.3s ease-out; }
+
+      /* UI Textures */
+      .wood-panel {
+        background-color: #5d4037;
+        background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 8px),
+                          linear-gradient(to bottom, #5d4037, #3e2723);
+        box-shadow: inset 0 0 10px #281815, 0 5px 15px rgba(0,0,0,0.5);
+        border: 4px solid #3e2723;
+        border-radius: 12px;
+      }
+
+      .glossy-btn {
+        background: linear-gradient(to bottom, #4ade80, #16a34a);
+        box-shadow: inset 0 2px 5px rgba(255,255,255,0.4), 0 4px 0 #15803d, 0 5px 10px rgba(0,0,0,0.3);
+        border-radius: 8px;
+        transition: transform 0.1s, box-shadow 0.1s;
+      }
+      .glossy-btn:active {
+        transform: translateY(4px);
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.2), 0 0 0 #15803d;
+      }
+      
+      .glossy-red {
+        background: linear-gradient(to bottom, #f87171, #dc2626);
+        box-shadow: inset 0 2px 5px rgba(255,255,255,0.4), 0 4px 0 #991b1b, 0 5px 10px rgba(0,0,0,0.3);
+      }
+      .glossy-red:active {
+        transform: translateY(4px);
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.2), 0 0 0 #991b1b;
+      }
+
+      /* Grass Pattern */
+      .lawn-bg {
+        background-color: #4ade80;
+        background-image: 
+          linear-gradient(45deg, #22c55e 25%, transparent 25%, transparent 75%, #22c55e 75%, #22c55e), 
+          linear-gradient(45deg, #22c55e 25%, transparent 25%, transparent 75%, #22c55e 75%, #22c55e);
+        background-size: 40px 40px;
+        background-position: 0 0, 20px 20px;
+        box-shadow: inset 0 0 50px rgba(0,0,0,0.3);
+      }
+
+      /* Orientation Lock Warning */
+      #rotate-warning {
+        display: none;
+      }
+      @media screen and (orientation: portrait) {
+        #rotate-warning {
+          display: flex;
+        }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-stone-900 text-white overflow-hidden select-none">
+    <div id="root"></div>
+    
+    <!-- Rotate Warning Overlay -->
+    <div id="rotate-warning" class="fixed inset-0 z-[100] bg-black flex-col items-center justify-center text-center p-8">
+      <div class="text-6xl mb-4">🔄</div>
+      <h1 class="text-3xl text-yellow-400 font-bold mb-4">가로로 돌려주세요!</h1>
+      <p class="text-stone-300">이 게임은 가로 모드에 최적화되어 있습니다.</p>
+    </div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
