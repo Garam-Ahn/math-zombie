@@ -1,9 +1,27 @@
 import { GoogleGenAI } from "@google/genai";
 
 // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Note: vite.config.ts replaces process.env.API_KEY with the actual string value at build time.
+const apiKey = process.env.API_KEY;
+
+let ai: GoogleGenAI | null = null;
+
+// Initialization Safety Check: Prevents "Uncaught Error" which causes Black Screen
+if (apiKey) {
+  try {
+    ai = new GoogleGenAI({ apiKey });
+  } catch (error) {
+    console.error("Gemini initialization failed:", error);
+  }
+} else {
+  console.warn("API Key is missing. AI features will be disabled. Check Vercel Environment Variables.");
+}
 
 export const generateZombieNote = async (table: number): Promise<string> => {
+  if (!ai) {
+    return "수학... 어렵다... (API 키 확인 필요)";
+  }
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -25,6 +43,10 @@ export const generateZombieNote = async (table: number): Promise<string> => {
 };
 
 export const generateMathEncouragement = async (isCorrect: boolean, table: number): Promise<string> => {
+  if (!ai) {
+    return isCorrect ? "최고예요!" : "다시 해봐요!";
+  }
+
   try {
     const prompt = isCorrect 
       ? `Give a super short, high-energy praise in Korean for a child mastering the ${table} times table. Do not use English words. Output strictly in Korean. (e.g., "정말 대단해요!", "천재인가봐요!")`
