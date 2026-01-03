@@ -54,7 +54,7 @@ export const PLANT_CONFIGS: Record<PlantType, PlantConfig> = {
     cooldown: 4500, // NERFED: Very slow fire rate (4.5s) to reduce projectile count
     svg: SVG_PEASHOOTER,
     color: "bg-green-500",
-    maxAmmo: 30 // Active Math: Must reload after 30 shots
+    maxAmmo: 20 // REDUCED: 20 Ammo
   },
   [PlantType.SUNFLOWER]: {
     type: PlantType.SUNFLOWER,
