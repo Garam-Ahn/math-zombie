@@ -13,7 +13,8 @@ import {
 
 export const ROWS = 5;
 export const COLS = 9;
-export const FPS = 60;
+// OPTIMIZATION: Lowered FPS to 30 for older iPad Mini performance
+export const FPS = 30;
 export const TICK_RATE = 1000 / FPS;
 
 // --- GAME BALANCING PARAMETERS ---
