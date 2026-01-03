@@ -90,7 +90,8 @@ export const ZOMBIE_VARIANTS = [
   { type: 'NORMAL', hp: 60, speed: 0.05, damage: 15, attackSpeed: 1000, svg: SVG_ZOMBIE_NORMAL }, 
   { type: 'CONE', hp: 120, speed: 0.06, damage: 15, attackSpeed: 1000, svg: SVG_ZOMBIE_CONE },
   { type: 'BUCKET', hp: 200, speed: 0.04, damage: 25, attackSpeed: 1200, svg: SVG_ZOMBIE_BUCKET },
-  { type: 'BOSS', hp: 800, speed: 0.03, damage: 40, attackSpeed: 1500, svg: SVG_ZOMBIE_BOSS },
+  // ZOMBOSS: Reduced HP from 2500 to 1000 for better balance
+  { type: 'BOSS', hp: 1000, speed: 0.02, damage: 100, attackSpeed: 2000, svg: SVG_ZOMBIE_BOSS },
 ] as const;
 
 export const INITIAL_SUN = 150;

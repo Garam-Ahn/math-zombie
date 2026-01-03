@@ -7,9 +7,10 @@ import { getNumberColorClass } from '../constants';
 interface StudyModeProps {
   onBack: () => void;
   onPlay: () => void;
+  isIngame?: boolean; // New prop to distinguish context
 }
 
-export const StudyMode: React.FC<StudyModeProps> = ({ onBack, onPlay }) => {
+export const StudyMode: React.FC<StudyModeProps> = ({ onBack, onPlay, isIngame = false }) => {
   const [selectedTable, setSelectedTable] = useState<number>(2);
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
@@ -52,7 +53,7 @@ export const StudyMode: React.FC<StudyModeProps> = ({ onBack, onPlay }) => {
   };
 
   return (
-    <div className="h-[100dvh] w-screen bg-[#1a4731] relative flex flex-col items-center justify-center p-2 md:p-4 font-sans overflow-hidden">
+    <div className="h-[100dvh] w-screen bg-[#1a4731] relative flex flex-col items-center justify-center p-2 md:p-4 font-sans overflow-hidden z-[70]">
       <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] pointer-events-none"></div>
       
       {/* Background Decorative Elements */}
@@ -61,12 +62,14 @@ export const StudyMode: React.FC<StudyModeProps> = ({ onBack, onPlay }) => {
 
       {/* Header */}
       <div className="z-10 w-full max-w-6xl flex justify-between items-center mb-2 md:mb-4 lg:mb-6 flex-shrink-0">
-        <button onClick={onBack} className="text-white text-lg md:text-xl font-bold hover:text-green-300 drop-shadow-md">← Back</button>
+        <button onClick={onBack} className="text-white text-lg md:text-xl font-bold hover:text-green-300 drop-shadow-md">
+            {isIngame ? "← Resume Game" : "← Back"}
+        </button>
         <h1 className="text-2xl md:text-3xl lg:text-5xl text-green-100 font-black drop-shadow-lg tracking-widest text-center truncate px-2">
             🌿 ZEN STUDY 🌿
         </h1>
         <button onClick={onPlay} className="glossy-btn bg-yellow-500 text-yellow-900 px-4 py-2 md:px-8 md:py-3 text-sm md:text-xl font-bold animate-pulse whitespace-nowrap">
-            Play ▶
+            {isIngame ? "RESUME ▶" : "Play ▶"}
         </button>
       </div>
 

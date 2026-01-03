@@ -17,6 +17,22 @@ export const SVG_COIN = SVG_START(`
 <circle cx="50" cy="50" r="30" fill="none" stroke="#fde047" stroke-width="2" opacity="0.5" />
 `);
 
+export const SVG_LOCK = SVG_START(`
+<defs>
+  <linearGradient id="lockGold" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" style="stop-color:#fcd34d;stop-opacity:1" />
+    <stop offset="100%" style="stop-color:#d97706;stop-opacity:1" />
+  </linearGradient>
+</defs>
+<!-- Shackle -->
+<path d="M30 40 L30 25 Q30 10 50 10 Q70 10 70 25 L70 40" fill="none" stroke="#9ca3af" stroke-width="8" stroke-linecap="round" />
+<!-- Body -->
+<rect x="20" y="40" width="60" height="50" rx="5" fill="url(#lockGold)" stroke="#b45309" stroke-width="3" />
+<!-- Keyhole -->
+<circle cx="50" cy="60" r="6" fill="#451a03" />
+<path d="M50 60 L44 80 L56 80 Z" fill="#451a03" />
+`);
+
 // --- PLANTS ---
 
 export const SVG_PEASHOOTER = (level: number) => SVG_START(`
@@ -197,9 +213,13 @@ const ZOMBIE_DEFS = `
      <stop offset="0%" style="stop-color:#d1d5db;stop-opacity:1" />
      <stop offset="100%" style="stop-color:#6b7280;stop-opacity:1" />
   </linearGradient>
-  <linearGradient id="football" x1="0%" y1="0%" x2="100%" y2="0%">
-     <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
-     <stop offset="100%" style="stop-color:#991b1b;stop-opacity:1" />
+  <linearGradient id="metal" x1="0%" y1="0%" x2="100%" y2="100%">
+     <stop offset="0%" style="stop-color:#9ca3af;stop-opacity:1" />
+     <stop offset="100%" style="stop-color:#374151;stop-opacity:1" />
+  </linearGradient>
+  <linearGradient id="glass" x1="0%" y1="0%" x2="0%" y2="100%">
+     <stop offset="0%" style="stop-color:#a5f3fc;stop-opacity:0.6" />
+     <stop offset="100%" style="stop-color:#0891b2;stop-opacity:0.8" />
   </linearGradient>
 </defs>
 `;
@@ -277,34 +297,43 @@ ${ZOMBIE_BODY}
 </g>
 `);
 
-// Giant Football Zombie
+// ZOMBOSS - Dr. Zomboss in a Robot
 export const SVG_ZOMBIE_BOSS = SVG_START(`
 ${ZOMBIE_DEFS}
 <!-- Shadow -->
-<ellipse cx="50" cy="95" rx="35" ry="8" fill="rgba(0,0,0,0.4)" />
+<ellipse cx="50" cy="95" rx="40" ry="10" fill="rgba(0,0,0,0.5)" />
 
-<!-- Bulkier Body -->
-<path d="M25 40 L75 40 L80 90 L20 90 Z" fill="url(#football)" stroke="#7f1d1d" stroke-width="3"/>
-<rect x="40" y="50" width="20" height="10" fill="white" font-weight="bold" />
-<text x="50" y="59" font-size="8" text-anchor="middle" fill="red" font-weight="bold">BOSS</text>
+<!-- Robot Body -->
+<path d="M20 30 L80 30 L85 85 L15 85 Z" fill="url(#metal)" stroke="#1f2937" stroke-width="3"/>
+<!-- Panel Lines -->
+<path d="M30 30 L35 85 M70 30 L65 85" stroke="#1f2937" stroke-width="1" opacity="0.5"/>
+<rect x="40" y="50" width="20" height="15" fill="#374151" rx="2"/> 
+<circle cx="50" cy="57" r="4" fill="#ef4444" class="animate-pulse"/> <!-- Blinking Light -->
 
-<!-- Legs -->
-<path d="M35 90 L30 100" stroke="#374151" stroke-width="10" stroke-linecap="round"/>
-<path d="M65 90 L70 100" stroke="#374151" stroke-width="10" stroke-linecap="round"/>
+<!-- Robot Legs -->
+<path d="M25 85 L20 100" stroke="#374151" stroke-width="12" stroke-linecap="round"/>
+<path d="M75 85 L80 100" stroke="#374151" stroke-width="12" stroke-linecap="round"/>
 
-<!-- Arms -->
-<path d="M25 50 L10 70" stroke="#ef4444" stroke-width="10" stroke-linecap="round"/>
-<circle cx="10" cy="70" r="8" fill="url(#skin)"/>
+<!-- Robot Arms -->
+<path d="M20 40 L5 60" stroke="#374151" stroke-width="10" stroke-linecap="round"/>
+<circle cx="5" cy="60" r="8" fill="#4b5563" stroke="#1f2937"/>
+<path d="M80 40 L95 60" stroke="#374151" stroke-width="10" stroke-linecap="round"/>
+<circle cx="95" cy="60" r="8" fill="#4b5563" stroke="#1f2937"/>
 
-<!-- Head -->
-<g class="headGroup" transform="scale(1.2) translate(-8, -10)">
-  ${ZOMBIE_HEAD_BASE}
-  <!-- Helmet -->
-  <path d="M25 15 Q50 -10 75 15" fill="#ef4444" stroke="#7f1d1d" stroke-width="2"/>
-  <path d="M25 15 L25 45 L35 45" fill="none" stroke="#ef4444" stroke-width="4"/>
-  <rect x="30" y="20" width="40" height="2" fill="white"/>
-  <rect x="35" y="20" width="2" height="20" fill="white"/>
-  <rect x="49" y="20" width="2" height="20" fill="white"/>
-  <rect x="63" y="20" width="2" height="20" fill="white"/>
+<!-- Glass Dome -->
+<path d="M25 30 Q25 0 50 0 Q75 0 75 30" fill="url(#glass)" stroke="#0891b2" stroke-width="2"/>
+
+<!-- Dr. Zomboss Inside -->
+<g transform="translate(40, 10) scale(0.6)">
+    <path d="M10 20 Q10 0 25 0 Q40 0 40 20 L40 40 L10 40 Z" fill="#a3e635" stroke="#365314" stroke-width="2"/> <!-- Big Brain Head -->
+    <rect x="15" y="40" width="20" height="15" fill="white"/> <!-- Lab Coat -->
+    <!-- Eyes -->
+    <circle cx="20" cy="15" r="5" fill="white" stroke="black"/>
+    <circle cx="20" cy="15" r="1" fill="black"/>
+    <circle cx="30" cy="15" r="5" fill="white" stroke="black"/>
+    <circle cx="30" cy="15" r="1" fill="black"/>
+    <!-- Controls -->
+    <path d="M10 35 L5 25" stroke="black" stroke-width="2"/>
+    <circle cx="5" cy="25" r="3" fill="red"/>
 </g>
 `);

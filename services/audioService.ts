@@ -154,6 +154,44 @@ class AudioService {
     setTimeout(() => this.playThunder(), 400);
   }
 
+  playBossWarning() {
+    this.initCtx();
+    const now = this.ctx!.currentTime;
+    
+    // Siren effect
+    const osc = this.ctx!.createOscillator();
+    const gain = this.ctx!.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.linearRampToValueAtTime(800, now + 1);
+    osc.frequency.linearRampToValueAtTime(400, now + 2);
+    
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.linearRampToValueAtTime(0, now + 2);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+    osc.start();
+    osc.stop(now + 2);
+  }
+
+  playBossDefeat() {
+    this.initCtx();
+    this.playThunder();
+    // Low frequency boom
+    const osc = this.ctx!.createOscillator();
+    const gain = this.ctx!.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(100, this.ctx!.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(10, this.ctx!.currentTime + 2);
+    gain.gain.setValueAtTime(0.8, this.ctx!.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx!.currentTime + 2);
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+    osc.start();
+    osc.stop(this.ctx!.currentTime + 2);
+  }
+
   // --- BGM LOGIC ---
 
   private playLoop(notes: {freq: number, dur: number}[], speed: number, type: OscillatorType) {

@@ -124,7 +124,7 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
                     key={num}
                     onClick={() => handleNumberClick(num)}
                     disabled={isSolved}
-                    className={`glossy-btn bg-green-500 text-black text-2xl sm:text-3xl py-3 shadow-md
+                    className={`glossy-btn bg-green-500 text-black text-2xl sm:text-3xl py-3 shadow-md font-black
                         ${isSolved ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-105'}
                     `}
                     >
@@ -134,7 +134,7 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
                 <button 
                     onClick={handleBackspace} 
                     disabled={isSolved}
-                    className={`glossy-red text-white text-xl sm:text-2xl py-3 rounded-lg shadow-md
+                    className={`glossy-red text-white text-xl sm:text-2xl py-3 rounded-lg shadow-md font-black
                     ${isSolved ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}
                     `}
                 >
@@ -143,7 +143,7 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
                 <button 
                     onClick={() => handleNumberClick(0)} 
                     disabled={isSolved}
-                    className={`glossy-btn bg-green-500 text-black text-2xl sm:text-3xl py-3 shadow-md
+                    className={`glossy-btn bg-green-500 text-black text-2xl sm:text-3xl py-3 shadow-md font-black
                     ${isSolved ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-105'}
                     `}
                 >
@@ -152,7 +152,7 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
                 <button 
                     onClick={handleSubmit} 
                     disabled={isSolved}
-                    className={`bg-yellow-400 text-yellow-900 text-lg md:text-xl py-3 rounded-lg border-b-4 border-yellow-600 shadow-md font-bold
+                    className={`bg-yellow-400 text-yellow-900 text-lg md:text-xl py-3 rounded-lg border-b-4 border-yellow-600 shadow-md font-black
                     ${isSolved ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-300 active:border-b-0 active:translate-y-1'}
                     `}
                 >
