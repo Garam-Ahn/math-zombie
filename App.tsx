@@ -21,7 +21,8 @@ import {
   INITIAL_LIVES,
   REVENGE_THRESHOLD,
   FREEZE_THRESHOLD,
-  MAX_ZOMBIES_ON_SCREEN
+  MAX_ZOMBIES_ON_SCREEN,
+  PEASHOOTER_LIMIT
 } from './constants';
 import { generateMathEncouragement } from './services/geminiService';
 import { firebaseService } from './services/firebaseService'; // SKELETON INTEGRATION
@@ -433,7 +434,7 @@ export default function App() {
             });
 
             if (zombieInLane && timestamp - plant.lastActionTime > config.cooldown) {
-              const finalDamage = (config.damage || 20) * (1 + (plant.level - 1) * 0.5);
+              const finalDamage = (config.damage || 60) * (1 + (plant.level - 1) * 0.5);
               newProjectiles.push({
                 id: uuid(),
                 row: plant.row,
@@ -486,7 +487,8 @@ export default function App() {
         let zombiesTookDamage = [...currentZombies];
 
         newProjectiles.forEach(proj => {
-          proj.x += 1; 
+          // OPTIMIZATION: Projectiles move faster (2x) to reduce count on screen
+          proj.x += 2; 
           let hit = false;
           
           // SORT ZOMBIES BY X (ASCENDING) so projectiles hit the front-most zombie first
@@ -494,33 +496,50 @@ export default function App() {
           // even if horde is faster and catches up.
           zombiesTookDamage.sort((a, b) => a.x - b.x);
 
-          zombiesTookDamage = zombiesTookDamage.map(z => {
-            if (hit || z.isDying) return z; 
+          // Find Hit Target
+          const hitTarget = zombiesTookDamage.find(z => {
+             if (z.isDying) return false;
+             const isRowMatch = (z.row === proj.row) || (z.type === 'BOSS' && z.row + 1 === proj.row);
+             return isRowMatch && z.x < proj.x && z.x + 5 > proj.x;
+          });
 
-            const isRowMatch = (z.row === proj.row) || (z.type === 'BOSS' && z.row + 1 === proj.row);
-            
-            if (isRowMatch && z.x < proj.x && z.x + 5 > proj.x) {
+          if (hitTarget) {
               hit = true;
               audio.playHit();
-              const knockback = z.type === 'BOSS' ? 0.5 : 3;
               
-              // --- SUNFLOWER AURA LOGIC ---
-              const zCol = Math.floor((z.x / 100) * COLS);
-              const nearbySunflower = updatedPlants.find(p => 
-                  p.type === PlantType.SUNFLOWER && 
-                  Math.abs(p.row - z.row) <= 1 && 
-                  Math.abs(p.col - zCol) <= 1
-              );
-              let damageMultiplier = 1;
-              if (nearbySunflower) {
-                  damageMultiplier = 1 + (nearbySunflower.level * 0.2); // +20% damage taken per level
-              }
-              // -----------------------------
+              // SPLASH DAMAGE LOGIC: Find clustered zombies
+              const splashTargets = zombiesTookDamage.filter(z => {
+                  if (z.isDying) return false;
+                  if (z.id === hitTarget.id) return true; // Include self
+                  const isRowMatch = (z.row === proj.row) || (z.type === 'BOSS' && z.row + 1 === proj.row);
+                  // Splash range: +/- 4% screen width
+                  return isRowMatch && Math.abs(z.x - hitTarget.x) < 4;
+              });
 
-              return { ...z, hp: z.hp - (proj.damage * damageMultiplier), lastHitTime: timestamp, x: Math.min(100, z.x + knockback) };
-            }
-            return z;
-          });
+              // Apply damage to all splash targets
+              splashTargets.forEach(z => {
+                  const isBoss = z.type === 'BOSS';
+                  // NO KNOCKBACK FOR BOSS: Keeps Boss in front to take damage
+                  const knockback = isBoss ? 0 : 3;
+                  
+                  // --- SUNFLOWER AURA LOGIC ---
+                  const zCol = Math.floor((z.x / 100) * COLS);
+                  const nearbySunflower = updatedPlants.find(p => 
+                      p.type === PlantType.SUNFLOWER && 
+                      Math.abs(p.row - z.row) <= 1 && 
+                      Math.abs(p.col - zCol) <= 1
+                  );
+                  let damageMultiplier = 1;
+                  if (nearbySunflower) {
+                      damageMultiplier = 1 + (nearbySunflower.level * 0.2); // +20% damage taken per level
+                  }
+                  
+                  z.hp = z.hp - (proj.damage * damageMultiplier);
+                  z.lastHitTime = timestamp;
+                  z.x = Math.min(100, z.x + knockback);
+              });
+          }
+
           if (!hit && proj.x < 100) survivingProjectiles.push(proj);
         });
 
@@ -751,9 +770,9 @@ export default function App() {
     // Check Peashooter Limit
     if (type === PlantType.PEASHOOTER) {
         const peashooterCount = plants.filter(p => p.type === PlantType.PEASHOOTER).length;
-        if (peashooterCount >= 10) {
+        if (peashooterCount >= PEASHOOTER_LIMIT) {
             audio.playWrong();
-            setFeedbackMsg("피슈터는 10마리까지만!");
+            setFeedbackMsg(`피슈터는 ${PEASHOOTER_LIMIT}마리까지만!`);
             setTimeout(() => setFeedbackMsg(""), 1500);
             setTileSelection(null);
             return;
@@ -817,9 +836,9 @@ export default function App() {
         // Check Peashooter Limit
         if (selectedPlantType === PlantType.PEASHOOTER) {
             const peashooterCount = plants.filter(p => p.type === PlantType.PEASHOOTER).length;
-            if (peashooterCount >= 10) {
+            if (peashooterCount >= PEASHOOTER_LIMIT) {
                 audio.playWrong();
-                setFeedbackMsg("피슈터는 10마리까지만!");
+                setFeedbackMsg(`피슈터는 ${PEASHOOTER_LIMIT}마리까지만!`);
                 setTimeout(() => setFeedbackMsg(""), 1500);
                 setSelectedPlantType(null);
                 setTooltip(null);

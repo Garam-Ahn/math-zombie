@@ -22,6 +22,7 @@ export const REVENGE_THRESHOLD = 5; // Mistakes required to trigger Revenge
 export const REVENGE_PROBLEM_COUNT = 5; // Number of problems in Revenge Phase 2
 export const FREEZE_THRESHOLD = 10; // Correct answers to trigger Auto-Freeze
 export const MAX_ZOMBIES_ON_SCREEN = 12; // Optimization Cap
+export const PEASHOOTER_LIMIT = 5; // STRICT LIMIT: Max 5 shooters to reduce projectiles
 
 // --- NUMBER COLOR SYSTEM ---
 // Consistent colors for 0-9 to help pattern recognition
@@ -46,11 +47,11 @@ export const PLANT_CONFIGS: Record<PlantType, PlantConfig> = {
   [PlantType.PEASHOOTER]: {
     type: PlantType.PEASHOOTER,
     name: "Pea Shooter",
-    description: "콩을 발사하여 좀비를 공격합니다.",
+    description: "강력한 콩을 발사합니다. (스플래시 데미지)",
     cost: 50,
     hp: 100,
-    damage: 20,
-    cooldown: 3500, // NERFED: Slower fire rate (3.5s) to force upgrades/math
+    damage: 60, // BUFFED: High damage per shot (was 20)
+    cooldown: 4500, // NERFED: Very slow fire rate (4.5s) to reduce projectile count
     svg: SVG_PEASHOOTER,
     color: "bg-green-500",
     maxAmmo: 30 // Active Math: Must reload after 30 shots
