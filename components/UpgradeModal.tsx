@@ -31,6 +31,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
   const [shake, setShake] = useState(false);
   const [comboFlash, setComboFlash] = useState(false);
 
+  // Uniqueness tracking
+  const [usedProblemKeys, setUsedProblemKeys] = useState<string[]>([]);
+
   const currentDamage = config.damage ? Math.floor(config.damage * (1 + (plant.level - 1) * 0.5)) : 0;
 
   useEffect(() => {
@@ -45,6 +48,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
       }, 50);
     }
     return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, problem]);
 
   useEffect(() => {
@@ -65,15 +69,31 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
   }, [input, mode, problem]);
 
   const generateProblem = () => {
-    const table = availableTables[Math.floor(Math.random() * availableTables.length)];
-    const b = Math.floor(Math.random() * 9) + 1;
-    setProblem({ factorA: table, factorB: b, answer: table * b });
+    // Generate unique problem for this session
+    let newProb: MathProblem;
+    let key: string;
+    let attempts = 0;
+    
+    do {
+        const table = availableTables[Math.floor(Math.random() * availableTables.length)];
+        const b = Math.floor(Math.random() * 9) + 1;
+        newProb = { factorA: table, factorB: b, answer: table * b };
+        key = `${table}x${b}`;
+        attempts++;
+    } while (usedProblemKeys.includes(key) && attempts < 20); // Prevent infinite loop if mostly exhausted
+
+    setUsedProblemKeys(prev => [...prev, key]);
+    setProblem(newProb);
     setTimeLeft(CHALLENGE_TIME_MS);
     setInput('');
   };
 
   const startChallenge = (targetMode: 'UPGRADE_CHALLENGE' | 'HEAL_CHALLENGE') => {
-    setMode(targetMode); setStreak(0); setQuestionIndex(0); generateProblem();
+    setMode(targetMode); 
+    setStreak(0); 
+    setQuestionIndex(0); 
+    setUsedProblemKeys([]); // Reset unique tracking
+    generateProblem();
   };
 
   const handleFail = (timeout = false) => {
@@ -149,6 +169,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
                   <div className="h-full bg-gradient-to-r from-red-600 to-red-400" style={{ width: `${(plant.hp / plant.maxHp) * 100}%` }} />
                   <span className="absolute inset-0 text-xs md:text-sm text-white flex items-center justify-center drop-shadow-md font-bold">HP {Math.floor(plant.hp)}/{plant.maxHp}</span>
               </div>
+              
+              {/* Ammo Display */}
+              {config.maxAmmo && (
+                <div className="w-full bg-stone-900 h-6 rounded-full border-2 border-stone-600 mb-2 relative overflow-hidden">
+                     <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400" style={{ width: `${((plant.ammo || 0) / (config.maxAmmo || 1)) * 100}%` }} />
+                     <span className="absolute inset-0 text-xs md:text-sm text-white flex items-center justify-center drop-shadow-md font-bold">Ammo {plant.ammo}/{config.maxAmmo}</span>
+                </div>
+              )}
               
               {currentDamage > 0 && (
                 <div className="bg-orange-900/50 px-3 py-1 rounded-full border border-orange-500 text-[10px] md:text-xs text-orange-200 mt-2">

@@ -21,6 +21,7 @@ export const TICK_RATE = 1000 / FPS;
 export const REVENGE_THRESHOLD = 5; // Mistakes required to trigger Revenge
 export const REVENGE_PROBLEM_COUNT = 5; // Number of problems in Revenge Phase 2
 export const FREEZE_THRESHOLD = 10; // Correct answers to trigger Auto-Freeze
+export const MAX_ZOMBIES_ON_SCREEN = 12; // Optimization Cap
 
 // --- NUMBER COLOR SYSTEM ---
 // Consistent colors for 0-9 to help pattern recognition
@@ -51,17 +52,19 @@ export const PLANT_CONFIGS: Record<PlantType, PlantConfig> = {
     damage: 20,
     cooldown: 3500, // NERFED: Slower fire rate (3.5s) to force upgrades/math
     svg: SVG_PEASHOOTER,
-    color: "bg-green-500"
+    color: "bg-green-500",
+    maxAmmo: 30 // Active Math: Must reload after 30 shots
   },
   [PlantType.SUNFLOWER]: {
     type: PlantType.SUNFLOWER,
     name: "Healer Flower",
-    description: "주변(상하좌우) 식물의 체력을 회복시킵니다.",
+    description: "주변 3x3 좀비의 방어력을 깎고 식물을 치료합니다.",
     cost: 25,
     hp: 80,
     cooldown: 2000, // Heal rate
     svg: SVG_SUNFLOWER,
     color: "bg-yellow-400"
+    // No ammo for sunflower, acts as passive aura
   },
   [PlantType.WALLNUT]: {
     type: PlantType.WALLNUT,

@@ -20,7 +20,8 @@ import {
   INITIAL_SUN,
   INITIAL_LIVES,
   REVENGE_THRESHOLD,
-  FREEZE_THRESHOLD
+  FREEZE_THRESHOLD,
+  MAX_ZOMBIES_ON_SCREEN
 } from './constants';
 import { generateMathEncouragement } from './services/geminiService';
 import { firebaseService } from './services/firebaseService'; // SKELETON INTEGRATION
@@ -95,6 +96,9 @@ export default function App() {
   const [tooltip, setTooltip] = useState<{name: string, desc: string} | null>(null);
   const [tooltipTimer, setTooltipTimer] = useState<number | null>(null);
 
+  // Active Reloading Problem
+  const [activeReloadPlantId, setActiveReloadPlantId] = useState<string | null>(null);
+
   const [activeMathProblem, setActiveMathProblem] = useState<{
     plantType: PlantType;
     row: number;
@@ -131,19 +135,19 @@ export default function App() {
     stateRef.current.status = status;
     stateRef.current.wave = wave;
     stateRef.current.isFrozen = isFrozen;
-    // PAUSE GAME when modals or STUDY MODE is active
-    stateRef.current.isPaused = !!activeMathProblem || !!activePlantInteraction || isPaused || showReport || !!tileSelection || showPinModal || showStudyModal;
+    // PAUSE GAME logic
+    stateRef.current.isPaused = !!activeMathProblem || !!activePlantInteraction || isPaused || showReport || showPinModal || showStudyModal || !!activeReloadPlantId;
     stateRef.current.showRevenge = showRevenge;
-  }, [lives, plants, zombies, projectiles, floatingSuns, status, wave, isFrozen, activeMathProblem, activePlantInteraction, isPaused, showRevenge, showReport, tileSelection, showPinModal, showStudyModal]);
+  }, [lives, plants, zombies, projectiles, floatingSuns, status, wave, isFrozen, activeMathProblem, activePlantInteraction, isPaused, showRevenge, showReport, tileSelection, showPinModal, showStudyModal, activeReloadPlantId]);
 
   useEffect(() => {
-    if (status === GameStatus.PLAYING && !isPaused && !showRevenge && !showReport && !tileSelection && !showPinModal && !showStudyModal) {
+    if (status === GameStatus.PLAYING && !stateRef.current.isPaused && !showRevenge) {
       audio.startBGM();
     } else {
       audio.stopBGM();
     }
     return () => audio.stopBGM();
-  }, [status, isPaused, showRevenge, showReport, tileSelection, showPinModal, showStudyModal]);
+  }, [status, isPaused, showRevenge, showReport, tileSelection, showPinModal, showStudyModal, activeMathProblem, activePlantInteraction, activeReloadPlantId]);
 
   // --- AUTO FREEZE TRIGGER ---
   useEffect(() => {
@@ -215,7 +219,11 @@ export default function App() {
   const handleRevengeComplete = () => {
     setShowRevenge(false);
     setShowRevengeSuccess(true);
+    
+    // Fix: Show flash only briefly to avoid white screen lock
     setFlashLightning(true);
+    setTimeout(() => setFlashLightning(false), 500);
+
     setWrongCount(0); 
     firebaseService.addScore(100);
     audio.playRevengeSuccess(); 
@@ -231,7 +239,6 @@ export default function App() {
     }));
 
     setTimeout(() => {
-        setFlashLightning(false);
         setShowRevengeSuccess(false);
         // SPAWN ZOMBOSS EVENT
         spawnZombossAndHorde();
@@ -284,27 +291,31 @@ export default function App() {
     if (currentWave >= 3) possibleVariants.push(ZOMBIE_VARIANTS[1]);
     if (currentWave >= 6) possibleVariants.push(ZOMBIE_VARIANTS[2]);
     
-    // NO RANDOM BOSS SPAWN HERE ANYMORE. Boss is event-only.
-    
     let variant = possibleVariants[Math.floor(Math.random() * possibleVariants.length)];
-    
     const row = forceRow ?? Math.floor(Math.random() * ROWS);
+    
+    // ELITE WAVE LOGIC: Scale stats instead of quantity
+    const isElite = Math.random() < 0.2 + (currentWave * 0.05); // Chance increases with wave
     const difficultyMult = 1 + (currentWave * 0.15); 
+    
+    const finalHp = variant.hp * difficultyMult * (isElite ? 2 : 1);
+    const finalSpeed = variant.speed * (1 + (currentWave * 0.05));
 
     return {
       id: uuid(),
       row,
       x: 100, 
-      hp: variant.hp * difficultyMult,
-      maxHp: variant.hp * difficultyMult,
-      speed: variant.speed * (1 + (currentWave * 0.05)),
+      hp: finalHp,
+      maxHp: finalHp,
+      speed: finalSpeed,
       damage: variant.damage,
       attackSpeed: variant.attackSpeed,
       isEating: false,
       type: variant.type,
       svg: variant.svg,
       lastHitTime: 0,
-      lastAttackTime: 0
+      lastAttackTime: 0,
+      isElite
     };
   };
 
@@ -324,6 +335,26 @@ export default function App() {
     setFloatingSuns(prev => prev.filter(s => s.id !== id));
     audio.playCollect(); 
   }, []);
+
+  // --- RELOAD LOGIC ---
+  const handleReloadResult = (success: boolean) => {
+      if (!activeReloadPlantId) return;
+      if (success) {
+          setPlants(prev => prev.map(p => {
+              if (p.id === activeReloadPlantId) {
+                  return { ...p, ammo: PLANT_CONFIGS[p.type].maxAmmo, lastActionTime: 0 }; // Full reload + instant ready
+              }
+              return p;
+          }));
+          audio.playUpgradeSuccess();
+          setFeedbackMsg("RELOADED!");
+          setTimeout(() => setFeedbackMsg(""), 1000);
+      }
+      setActiveReloadPlantId(null);
+      // Close math modal by clearing activeMathProblem is handled by the Modal onClose binding if we reuse logic, 
+      // but here we are using a separate flow.
+      setActiveMathProblem(null);
+  };
 
   useEffect(() => {
     let animationFrameId: number;
@@ -359,8 +390,11 @@ export default function App() {
         const spawnRate = Math.max(1500, 10000 - (state.wave * 800)); 
         
         if (!state.isFrozen && state.zombieSpawnTimer > spawnRate) {
-          currentZombies.push(createZombie(state.wave));
-          state.zombieSpawnTimer = 0;
+          // ZOMBIE CAP CHECK: Don't spawn if too many
+          if (currentZombies.length < MAX_ZOMBIES_ON_SCREEN) {
+             currentZombies.push(createZombie(state.wave));
+             state.zombieSpawnTimer = 0;
+          }
         }
 
         if (state.sunSpawnTimer > 8000) {
@@ -385,6 +419,12 @@ export default function App() {
           const config = PLANT_CONFIGS[plant.type];
           
           if (plant.type === PlantType.PEASHOOTER) {
+            // Check Ammo
+            if ((plant.ammo || 0) <= 0) {
+                // Out of ammo state, handled in renderer
+                return plant;
+            }
+
             const zombieInLane = currentZombies.some(z => {
                 if (z.x <= 5 || z.isDying) return false; 
                 if (z.row === plant.row) return true;
@@ -403,6 +443,7 @@ export default function App() {
               });
               audio.playShoot();
               plant.lastActionTime = timestamp;
+              plant.ammo = (plant.ammo || 0) - 1; // Decrease Ammo
             }
           }
           
@@ -462,7 +503,21 @@ export default function App() {
               hit = true;
               audio.playHit();
               const knockback = z.type === 'BOSS' ? 0.5 : 3;
-              return { ...z, hp: z.hp - proj.damage, lastHitTime: timestamp, x: Math.min(100, z.x + knockback) };
+              
+              // --- SUNFLOWER AURA LOGIC ---
+              const zCol = Math.floor((z.x / 100) * COLS);
+              const nearbySunflower = updatedPlants.find(p => 
+                  p.type === PlantType.SUNFLOWER && 
+                  Math.abs(p.row - z.row) <= 1 && 
+                  Math.abs(p.col - zCol) <= 1
+              );
+              let damageMultiplier = 1;
+              if (nearbySunflower) {
+                  damageMultiplier = 1 + (nearbySunflower.level * 0.2); // +20% damage taken per level
+              }
+              // -----------------------------
+
+              return { ...z, hp: z.hp - (proj.damage * damageMultiplier), lastHitTime: timestamp, x: Math.min(100, z.x + knockback) };
             }
             return z;
           });
@@ -472,16 +527,20 @@ export default function App() {
         // Zombie Logic
         let livesLost = 0;
         const activeZombies: ZombieEntity[] = [];
+        let bossDefeatedThisTick = false;
 
         for (const z of zombiesTookDamage) {
             if (z.hp <= 0 && !z.isDying) {
                 // DEATH LOGIC
                 if (z.type === 'BOSS') {
+                    bossDefeatedThisTick = true;
                     // BOSS DEFEAT EVENT
                     setFlashLightning(true);
+                    setTimeout(() => setFlashLightning(false), 500); // Brief flash only
+
                     audio.playBossDefeat();
                     setBossMessage("ZOMBOSS DEFEATED!");
-                    setTimeout(() => { setFlashLightning(false); setBossMessage(null); }, 3000);
+                    setTimeout(() => setBossMessage(null), 3000);
                     spawnCoin(z.x, 50); // Big reward
                     setScore(s => s + 500);
                 } else {
@@ -533,6 +592,25 @@ export default function App() {
                 livesLost += 1; 
             }
             else activeZombies.push({ ...z, x: newX, isEating: eating, isFrozen: state.isFrozen });
+        }
+
+        // --- ZOMBOSS DEATH EFFECT: WEAKEN ALL ZOMBIES ---
+        if (bossDefeatedThisTick) {
+            setFeedbackMsg("ZOMBIES WEAKENED!");
+            setTimeout(() => setFeedbackMsg(""), 3000);
+            activeZombies.forEach(z => {
+                if (z.type !== 'BOSS' && !z.isDying) {
+                    const threshold = z.maxHp * 0.1;
+                    if (z.hp < threshold) {
+                         // Die immediately if already weak
+                         z.hp = 0;
+                         // Let next tick handle death animation start for cleaner loop
+                    } else {
+                         // Reduce to 10%
+                         z.hp = threshold;
+                    }
+                }
+            });
         }
 
         const finalPlants = updatedPlants.filter(p => p.hp > 0 && !plantsToRemove.includes(p.id));
@@ -670,6 +748,18 @@ export default function App() {
     if (!tileSelection) return;
     const cfg = PLANT_CONFIGS[type];
     
+    // Check Peashooter Limit
+    if (type === PlantType.PEASHOOTER) {
+        const peashooterCount = plants.filter(p => p.type === PlantType.PEASHOOTER).length;
+        if (peashooterCount >= 10) {
+            audio.playWrong();
+            setFeedbackMsg("피슈터는 10마리까지만!");
+            setTimeout(() => setFeedbackMsg(""), 1500);
+            setTileSelection(null);
+            return;
+        }
+    }
+
     if (sun < cfg.cost) {
       audio.playWrong();
       return; // Do nothing if too expensive
@@ -697,12 +787,46 @@ export default function App() {
     
     // 1. Interaction with existing plant
     if (existingPlant) {
-      if (!selectedPlantType) { setActivePlantInteraction(existingPlant); audio.playCollect(); }
+      // CHECK AMMO
+      if (existingPlant.type === PlantType.PEASHOOTER && (existingPlant.ammo || 0) <= 0) {
+          // Trigger Reload Math Event
+          const table = selectedTables[Math.floor(Math.random() * selectedTables.length)];
+          const b = Math.floor(Math.random() * 9) + 1;
+          setActiveReloadPlantId(existingPlant.id);
+          setActiveMathProblem({
+              plantType: existingPlant.type,
+              row: existingPlant.row,
+              col: existingPlant.col,
+              problem: { factorA: table, factorB: b, answer: table * b }
+          });
+          audio.playCollect();
+          return;
+      }
+
+      if (!selectedPlantType) { 
+        setActivePlantInteraction(existingPlant); 
+        // IMPORTANT: If tile menu was open, close it to avoid conflict
+        setTileSelection(null);
+        audio.playCollect(); 
+      }
       return;
     }
 
     // 2. Manual Plant Selection Active (Top Bar)
     if (selectedPlantType) {
+        // Check Peashooter Limit
+        if (selectedPlantType === PlantType.PEASHOOTER) {
+            const peashooterCount = plants.filter(p => p.type === PlantType.PEASHOOTER).length;
+            if (peashooterCount >= 10) {
+                audio.playWrong();
+                setFeedbackMsg("피슈터는 10마리까지만!");
+                setTimeout(() => setFeedbackMsg(""), 1500);
+                setSelectedPlantType(null);
+                setTooltip(null);
+                return;
+            }
+        }
+
         const config = PLANT_CONFIGS[selectedPlantType];
         if (sun < config.cost) {
             setFeedbackMsg("Not enough Sun!");
@@ -722,6 +846,12 @@ export default function App() {
   };
 
   const handleMathResult = async (success: boolean) => {
+    // Check if this is a RELOAD event
+    if (activeReloadPlantId) {
+        handleReloadResult(success);
+        return;
+    }
+
     if (!activeMathProblem) return;
     
     if (success) {
@@ -729,7 +859,8 @@ export default function App() {
       setSun(prev => Math.max(0, prev - config.cost));
       setPlants(prev => [...prev, {
         id: uuid(), type: activeMathProblem.plantType, row: activeMathProblem.row, col: activeMathProblem.col,
-        hp: config.hp, maxHp: config.hp, level: 1, lastActionTime: performance.now(), lastHitTime: 0
+        hp: config.hp, maxHp: config.hp, level: 1, lastActionTime: performance.now(), lastHitTime: 0,
+        ammo: config.maxAmmo // Initialize Ammo
       }]);
       generateMathEncouragement(true, activeMathProblem.problem.factorA).then(msg => {
           setFeedbackMsg(msg);
@@ -750,7 +881,15 @@ export default function App() {
       if (p.id === plantId) {
         setFeedbackMsg(`Level Up! +${levelIncrement}`);
         setTimeout(() => setFeedbackMsg(""), 2000);
-        return { ...p, level: p.level + levelIncrement, maxHp: p.maxHp + 50, hp: p.hp + 50 };
+        // FIX: Restore HP to max, reload Ammo
+        const config = PLANT_CONFIGS[p.type];
+        return { 
+            ...p, 
+            level: p.level + levelIncrement, 
+            maxHp: p.maxHp + 50, 
+            hp: p.maxHp + 50, 
+            ammo: config.maxAmmo 
+        };
       }
       return p;
     }));
@@ -758,8 +897,15 @@ export default function App() {
   };
 
   const handleHeal = (plantId: string) => {
-    setPlants(prev => prev.map(p => p.id === plantId ? { ...p, hp: p.maxHp } : p));
-    setFeedbackMsg(`Fully Healed!`);
+    // FIX: Restore HP to max, reload Ammo
+    setPlants(prev => prev.map(p => {
+        if (p.id === plantId) {
+            const config = PLANT_CONFIGS[p.type];
+            return { ...p, hp: p.maxHp, ammo: config.maxAmmo };
+        }
+        return p;
+    }));
+    setFeedbackMsg(`Fully Healed & Reloaded!`);
     setTimeout(() => setFeedbackMsg(""), 2000);
     setActivePlantInteraction(null);
   };
@@ -1046,11 +1192,11 @@ export default function App() {
       )}
 
       {/* --- GAME WORLD LAYER (Can be Grayed Out) --- */}
-      <div className={`flex flex-col h-full w-full transition-all duration-500 ${isPaused || showRevenge || showReport || showStudyModal ? 'grayscale brightness-50' : ''}`}>
+      <div className={`flex flex-col h-full w-full transition-all duration-500 ${isPaused || showRevenge || showReport || showStudyModal || activeReloadPlantId ? 'grayscale brightness-50' : ''}`}>
         
         {/* HUD Bar */}
         <div className="h-14 sm:h-20 bg-[#5d4037] flex items-center justify-between px-4 border-b-8 border-[#3e2723] z-20 shadow-xl relative">
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] opacity-30 pointer-events-none"></div>
+          <div className="absolute inset-0 opacity-30 pointer-events-none bg-black/20"></div>
           <div className="flex items-center gap-2 sm:gap-4 z-10">
             {/* Coins Display */}
             <div className="bg-[#3e2723] rounded-lg px-2 py-1 border border-[#8d6e63] flex flex-col text-[10px] sm:text-xs shadow-inner min-w-[60px] sm:min-w-[80px]">
@@ -1126,18 +1272,17 @@ export default function App() {
             {Array.from({ length: ROWS }).map((_, r) => (
               <div key={r} className="flex-1 flex w-full mb-2">
                 {Array.from({ length: COLS }).map((_, c) => {
-                  const healerNearby = plants.some(p => p.type === PlantType.SUNFLOWER && (Math.abs(p.row - r) + Math.abs(p.col - c) === 1));
+                  const nearbySunflower = plants.find(p => p.type === PlantType.SUNFLOWER && Math.abs(p.row - r) <= 1 && Math.abs(p.col - c) <= 1);
                   const isSelectedForPlanting = tileSelection?.row === r && tileSelection?.col === c;
                   const isTopRows = r < 2; // Check if it's top row to position popup below
 
                   return (
                     <div key={c} 
-                        className={`flex-1 relative rounded-lg mx-1 transition-colors duration-200
-                          ${healerNearby ? 'bg-yellow-400/20 shadow-[0_0_15px_rgba(250,204,21,0.5)] border-2 border-yellow-300' : 'hover:bg-white/10'}
+                        className={`flex-1 relative rounded-lg mx-1 transition-colors duration-200 border border-white/5
+                          ${nearbySunflower ? 'bg-yellow-400/10 shadow-[inset_0_0_10px_rgba(250,204,21,0.2)]' : 'hover:bg-white/10'}
                           ${isSelectedForPlanting ? 'bg-white/20 border-2 border-white' : ''}
                         `}
                         onClick={() => handleCellClick(r, c)}>
-                          <div className="absolute inset-0 border-2 border-black/5 rounded-lg pointer-events-none"></div>
                           
                           {/* Tile Selection Popup */}
                           {isSelectedForPlanting && (
@@ -1201,32 +1346,53 @@ export default function App() {
             const isShooting = performance.now() - plant.lastActionTime < 200;
             const hpPercent = Math.max(0, (plant.hp / plant.maxHp) * 100);
             const scale = Math.min(1.2, 1 + (plant.level - 1) * 0.05);
+            
+            // Check Ammo Status
+            const noAmmo = cfg.maxAmmo && (plant.ammo || 0) <= 0;
 
             return (
-              <div key={plant.id} className="absolute pointer-events-none"
+              <div key={plant.id} className="absolute pointer-events-none flex items-center justify-center"
                 style={{ 
                   top: `${(plant.row / ROWS) * 100}%`, 
                   left: `${(plant.col / COLS) * 100}%`, 
                   width: `${100/COLS}%`, 
                   height: `${100/ROWS}%`,
-                  marginTop: '1%'
                 }}>
-                <div className="w-full h-full flex items-center justify-center transition-transform" style={{ transform: `scale(${scale})` }}>
+                <div className="w-full h-full flex items-center justify-center transition-transform relative" style={{ transform: `scale(${scale})` }}>
                   {plant.level > 2 && (
                       <div className="absolute inset-0 bg-yellow-400/20 rounded-full blur-md animate-pulse"></div>
                   )}
-                  <div className={`w-[90%] h-[90%] filter drop-shadow-lg ${isHit ? 'animate-hit' : ''} ${isShooting && plant.type === PlantType.PEASHOOTER ? 'animate-shoot' : ''}`} dangerouslySetInnerHTML={{ __html: cfg.svg(plant.level) }} />
+                  <div className={`w-[90%] h-[90%] filter drop-shadow-lg 
+                      ${isHit ? 'animate-hit' : ''} 
+                      ${isShooting && plant.type === PlantType.PEASHOOTER ? 'animate-shoot' : ''}
+                      ${noAmmo ? 'grayscale opacity-70' : ''}
+                  `} dangerouslySetInnerHTML={{ __html: cfg.svg(plant.level) }} />
+                  
+                  {/* RELOAD INDICATOR */}
+                  {noAmmo && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold animate-bounce shadow-md border border-white whitespace-nowrap z-50">
+                          ⚠️ RELOAD
+                      </div>
+                  )}
                 </div>
                 {plant.hp < plant.maxHp && (
                   <div className="absolute top-1 left-1/2 -translate-x-1/2 w-12 h-2 bg-stone-900 rounded-full border border-white overflow-hidden z-50 shadow-md">
                       <div className="absolute top-0 left-0 h-full bg-green-500" style={{ width: `${hpPercent}%` }} />
                   </div>
                 )}
-                {plant.level > 1 && (
-                  <div className="absolute bottom-1 right-1 bg-yellow-400 text-yellow-900 text-[10px] px-2 py-0.5 rounded-full border border-yellow-600 font-bold z-50 shadow-sm">
-                      Lv.{plant.level}
-                  </div>
-                )}
+                <div className="absolute bottom-1 right-1 flex flex-col items-end gap-0.5">
+                    {plant.level > 1 && (
+                    <div className="bg-yellow-400 text-yellow-900 text-[8px] px-1.5 py-0.5 rounded-full border border-yellow-600 font-bold z-50 shadow-sm">
+                        Lv.{plant.level}
+                    </div>
+                    )}
+                    {/* Ammo Count */}
+                    {cfg.maxAmmo && !noAmmo && (
+                        <div className="bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-full border border-blue-700 font-bold z-50 shadow-sm">
+                            {plant.ammo}
+                        </div>
+                    )}
+                </div>
               </div>
             );
           })}
@@ -1238,28 +1404,32 @@ export default function App() {
             let scale = 1.1; 
             if (zombie.type === 'BUCKET') scale = 1.3;
             if (zombie.type === 'CONE') scale = 1.2;
-            if (isBoss) scale = 1.5; // Zomboss is BIG
+            if (isBoss) scale = 1.5; 
             
-            if (!isBoss) {
+            // ELITE SCALING VISUALS
+            if (zombie.isElite) scale *= 1.3;
+
+            if (!isBoss && !zombie.isElite) {
                 scale += Math.min(0.5, (wave - 1) * 0.05);
             }
 
             const heightPercent = isBoss ? (100/ROWS) * 2 : (100/ROWS);
             const hitFilter = isHit ? 'brightness(2) sepia(1) hue-rotate(-50deg)' : (isFrozen ? 'brightness(0.8) contrast(1.2)' : 'none');
             const dyingFilter = zombie.isDying ? 'grayscale(1) brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none';
+            const eliteFilter = zombie.isElite ? 'drop-shadow(0 0 3px red)' : '';
             const freezeShadow = isFrozen && !zombie.isDying ? 'drop-shadow(0 0 5px #22d3ee)' : '';
 
             return (
-              <div key={zombie.id} className="absolute flex flex-col items-center justify-center transition-transform duration-100 ease-linear pointer-events-none"
+              <div key={zombie.id} className="absolute flex flex-col items-center justify-center transition-transform duration-100 ease-linear pointer-events-none gpu-accelerated"
                 style={{ 
                     top: `${(zombie.row / ROWS) * 100}%`, 
                     left: `${zombie.x}%`, 
                     width: `${100/COLS}%`, 
                     height: `${heightPercent}%`, 
-                    transform: 'translateX(-50%)', 
+                    transform: 'translateX(-50%) translateZ(0)', 
                     marginTop: isBoss ? '0' : '-2%',
                     zIndex: isBoss ? 30 : 10,
-                    filter: freezeShadow // Apply shadow to container
+                    filter: `${freezeShadow} ${eliteFilter}` // Apply shadow to container
                 }}>
                 {!zombie.isDying && (
                   <div className="absolute left-1/2 ml-1 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-stone-900 border border-stone-600 rounded-full overflow-hidden z-20 shadow-sm flex flex-col justify-end">
@@ -1272,7 +1442,7 @@ export default function App() {
                   `} 
                   style={{ 
                       transformOrigin: 'bottom center', 
-                      transform: `scale(${scale}) ${zombie.x % 2 > 1 ? 'scaleX(-1)' : ''}`,
+                      transform: `scale(${scale}) ${zombie.x % 2 > 1 ? 'scaleX(-1)' : ''} translateZ(0)`,
                       filter: zombie.isDying ? dyingFilter : hitFilter,
                       opacity: zombie.isDying ? 0.7 : 1
                   }}
@@ -1283,19 +1453,21 @@ export default function App() {
           })}
 
           {projectiles.map(proj => {
-            let color1 = '#bbf7d0'; 
-            let color2 = '#22c55e';
+            // VISIBILITY FIX: Changed default colors to yellow/gold for high contrast against green grass
+            let color1 = '#fef08a'; // yellow-200
+            let color2 = '#eab308'; // yellow-500
             if (proj.level === 2) { color1 = '#93c5fd'; color2 = '#3b82f6'; } 
             if (proj.level >= 3) { color1 = '#fca5a5'; color2 = '#ef4444'; } 
 
             return (
             <div key={proj.id} 
-              className={`absolute rounded-full shadow-[0_0_10px_${color2}] z-20 ${proj.level > 2 ? 'w-6 h-6 md:w-8 md:h-8' : 'w-4 h-4 md:w-6 md:h-6'}`}
+              className={`absolute rounded-full shadow-none z-20 gpu-accelerated ${proj.level > 2 ? 'w-6 h-6 md:w-8 md:h-8' : 'w-4 h-4 md:w-6 md:h-6'}`}
               style={{ 
                 top: `${(proj.row / ROWS) * 100 + 10}%`, 
                 left: `${proj.x}%`, 
-                transform: 'translate(-50%, -50%)',
-                background: `radial-gradient(circle at 30% 30%, ${color1}, ${color2})`
+                transform: 'translate(-50%, -50%) translateZ(0)',
+                backgroundColor: color2,
+                border: '2px solid white' // Added border for extra visibility
               }} 
             />
           );})}
@@ -1305,13 +1477,7 @@ export default function App() {
               className="absolute cursor-pointer z-30 transition-transform hover:scale-110 active:scale-90"
               style={{ left: `${s.x}%`, top: `${s.y}%` }}>
               <svg width="60" height="60" viewBox="0 0 100 100" className="animate-[spin_10s_linear_infinite]">
-                  <defs>
-                      <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
-                          <stop offset="50%" stopColor="#fef08a" />
-                          <stop offset="100%" stopColor="#eab308" />
-                      </radialGradient>
-                  </defs>
-                  <circle cx="50" cy="50" r="30" fill="url(#sunGrad)" stroke="#ca8a04" strokeWidth="2" />
+                  <circle cx="50" cy="50" r="30" fill="#eab308" stroke="#ca8a04" strokeWidth="2" />
                   <path d="M50 10 L50 0 M50 90 L50 100 M10 50 L0 50 M90 50 L100 50 M22 22 L15 15 M78 78 L85 85 M22 78 L15 85 M78 22 L85 15" stroke="#eab308" strokeWidth="4" strokeLinecap="round" />
               </svg>
             </button>
@@ -1353,12 +1519,12 @@ export default function App() {
 
       {/* --- UI & MODAL LAYER (Unaffected by Grayscale) --- */}
       
-      {/* Lightning Flash Effect */}
+      {/* Lightning Flash Effect - Z-INDEX ADJUSTED TO NOT BLOCK REVENGE TEXT */}
       {flashLightning && (
-          <div className="absolute inset-0 bg-white z-[100] animate-flash pointer-events-none"></div>
+          <div className="absolute inset-0 bg-white z-[85] animate-flash pointer-events-none"></div>
       )}
 
-      {/* REVENGE SUCCESS OVERLAY */}
+      {/* REVENGE SUCCESS OVERLAY - Z-INDEX 90 (Above flash) */}
       {showRevengeSuccess && (
         <div className="absolute inset-0 z-[90] flex items-center justify-center overflow-hidden pointer-events-none">
             {/* Rotating sunburst bg */}
@@ -1406,7 +1572,7 @@ export default function App() {
             problem={activeMathProblem.problem} 
             onSolve={handleMathResult} 
             onAttempt={(ans, correct) => handleMathAttempt(activeMathProblem.problem, ans, correct)}
-            onClose={() => { setActiveMathProblem(null); setSelectedPlantType(null); }} 
+            onClose={() => { setActiveMathProblem(null); setSelectedPlantType(null); setActiveReloadPlantId(null); }} 
         />
       )}
       {activePlantInteraction && !showRevenge && (

@@ -26,6 +26,7 @@ export interface PlantConfig {
   cooldown: number; // milliseconds
   svg: (level: number) => string; // CHANGED: SVG is now a function of level
   color: string;
+  maxAmmo?: number; // New: Ammo limit
 }
 
 export interface PlantEntity {
@@ -38,6 +39,8 @@ export interface PlantEntity {
   level: number; // Added level (default 1)
   lastActionTime: number;
   lastHitTime?: number; // For hit animation
+  ammo?: number; // New: Current ammo
+  maxAmmo?: number; // New: Max ammo capacity
 }
 
 export interface ZombieEntity {
@@ -57,6 +60,7 @@ export interface ZombieEntity {
   isFrozen?: boolean; // New status effect
   isDying?: boolean; // New: For death animation
   deathTime?: number; // New: When did it start dying
+  isElite?: boolean; // New: Visual marker for scaled up zombies
 }
 
 export interface ProjectileEntity {

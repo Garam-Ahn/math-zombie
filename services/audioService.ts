@@ -5,6 +5,9 @@ class AudioService {
   private isMuted: boolean = false;
   private bgmNodes: AudioScheduledSourceNode[] = [];
   private revengeNodes: AudioScheduledSourceNode[] = [];
+  
+  // Throttling Map
+  private lastPlayed: Record<string, number> = {};
 
   constructor() {
     this.isMuted = false;
@@ -53,8 +56,25 @@ class AudioService {
   }
 
   playCollect() { this.playTone(880, 0.1, 'square', 0.05); }
-  playShoot() { this.playTone(440, 0.05, 'triangle', 0.05); } // softer shoot
-  playHit() { this.playTone(110, 0.2, 'sawtooth', 0.1); }
+  
+  playShoot() { 
+    // Throttling: Max 10 shots per second
+    const now = Date.now();
+    if (now - (this.lastPlayed['shoot'] || 0) < 100) return;
+    this.lastPlayed['shoot'] = now;
+    
+    this.playTone(440, 0.05, 'triangle', 0.05); 
+  } 
+
+  playHit() { 
+    // Throttling: Max 5 hits sounds per second (it can get very noisy)
+    const now = Date.now();
+    if (now - (this.lastPlayed['hit'] || 0) < 200) return;
+    this.lastPlayed['hit'] = now;
+
+    this.playTone(110, 0.2, 'sawtooth', 0.1); 
+  }
+
   playCorrect() { 
       this.playTone(523.25, 0.1, 'sine', 0.1); 
       setTimeout(() => this.playTone(659.25, 0.2, 'sine', 0.1), 100); 
@@ -272,8 +292,9 @@ class AudioService {
         const gain = this.ctx!.createGain();
         osc.type = 'square';
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.05, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
+        // SIGNIFICANTLY REDUCED VOLUME to be less distracting
+        gain.gain.setValueAtTime(0.015, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.005, startTime + 0.1);
         osc.connect(gain);
         gain.connect(this.masterGain!);
         osc.start(startTime);
