@@ -35,7 +35,8 @@ import { PieGauge } from './components/PieGauge';
 import { audio } from './services/audioService';
 import { SVG_PEASHOOTER, SVG_ZOMBIE_NORMAL, SVG_COIN, SVG_LOCK } from './assets';
 
-const uuid = () => Math.random().toString(36).substring(2, 9);
+// Robust UUID to prevent key collisions
+const uuid = () => performance.now().toString(36) + Math.random().toString(36).substring(2);
 
 export default function App() {
   const [status, setStatus] = useState<GameStatus>(GameStatus.TITLE);
@@ -479,120 +480,24 @@ export default function App() {
           }
         });
 
-        // Projectiles Logic (OPTIMIZED)
+        // Projectiles Logic (OPTIMIZED & GHOST FIXED)
         // 1. Sort zombies ONCE per frame
         currentZombies.sort((a, b) => a.x - b.x);
 
-        // 2. Process existing projectiles
-        const allProjectiles = [...state.projectiles, ...newProjectiles]; // Existing + Newly spawned
-        
-        allProjectiles.forEach(proj => {
-          proj.x += 2; // Fast speed
-          let hit = false;
-          
-          // Find hit target in sorted list
-          // Simple scan is fast enough for small N (<=12)
-          const hitTarget = currentZombies.find(z => {
-             if (z.isDying) return false;
-             const isRowMatch = (z.row === proj.row) || (z.type === 'BOSS' && z.row + 1 === proj.row);
-             return isRowMatch && z.x < proj.x && z.x + 5 > proj.x;
-          });
+        // 2. Move existing projectiles (Immutable update)
+        // Creating new objects prevents React reconciliation issues where old 'x' values persist visually
+        const movedProjectiles = state.projectiles.map(p => ({
+            ...p,
+            x: p.x + 2 // Fast speed
+        }));
 
-          if (hitTarget) {
-              hit = true;
-              audio.playHit();
-              
-              // Apply damage to hitTarget and splash neighbors directly
-              // Scan neighbors in the ALREADY SORTED currentZombies list
-              currentZombies.forEach(z => {
-                  if (z.isDying) return;
-                  let shouldHit = false;
-                  if (z.id === hitTarget.id) shouldHit = true;
-                  else {
-                      const isRowMatch = (z.row === proj.row) || (z.type === 'BOSS' && z.row + 1 === proj.row);
-                      // Narrow splash
-                      if (isRowMatch && Math.abs(z.x - hitTarget.x) < 4) shouldHit = true;
-                  }
-
-                  if (shouldHit) {
-                      const isBoss = z.type === 'BOSS';
-                      const knockback = isBoss ? 0 : 3;
-                      
-                      // Check for Sunflower aura
-                      const zCol = Math.floor((z.x / 100) * COLS);
-                      const nearbySunflower = updatedPlants.find(p => 
-                          p.type === PlantType.SUNFLOWER && 
-                          Math.abs(p.row - z.row) <= 1 && 
-                          Math.abs(p.col - zCol) <= 1
-                      );
-                      let damageMultiplier = 1;
-                      if (nearbySunflower) {
-                          damageMultiplier = 1 + (nearbySunflower.level * 0.2); 
-                      }
-                      
-                      z.hp -= (proj.damage * damageMultiplier);
-                      z.lastHitTime = timestamp;
-                      z.x = Math.min(100, z.x + knockback);
-                  }
-              });
-          }
-
-          if (!hit && proj.x < 100) newProjectiles.push(proj); // Keep moving
-        });
+        // 3. Combine with new projectiles
+        const allToCheck = [...movedProjectiles, ...newProjectiles];
         
-        // Final Projectile List for next state is handled by the iteration above logic flaw?
-        // Wait, I iterated `allProjectiles`. I need to save the surviving ones.
-        const survivingProjectiles: ProjectileEntity[] = [];
-        allProjectiles.forEach(proj => {
-            // If proj.x was modified above, check bounds/hit status?
-            // The loop above modifies `proj` in place if it was from `state.projectiles` copy.
-            // But wait, I need to know if it hit THIS frame.
-            // Let's refine the loop to push to survivingProjectiles inside the loop.
-        });
-        
-        // RE-RUNNING Projectile Logic correctly:
-        const finalProjectiles: ProjectileEntity[] = [];
-        allProjectiles.forEach(proj => {
-             // Logic repeated for clarity inside this block instead of separate
-             // If projectile was just created, it hasn't moved yet in the loop above? 
-             // Actually, I moved them above.
-             // Let's assume the previous block did detection. 
-             // To simplify: I will just filter `allProjectiles` based on X and Hit status.
-             // But Hit status modifies Zombies.
-             // Okay, simpler:
-             
-             // Check collision for this specific projectile
-             const hitTarget = currentZombies.find(z => {
-                 if (z.isDying) return false;
-                 const isRowMatch = (z.row === proj.row) || (z.type === 'BOSS' && z.row + 1 === proj.row);
-                 // Check intersection
-                 return isRowMatch && z.x < proj.x && z.x + 5 > proj.x;
-             });
-             
-             if (hitTarget) {
-                 // Hit logic (Damage application)
-                 // ... (Same as above) ...
-                 // Do NOT add to finalProjectiles
-             } else {
-                 if (proj.x < 100) finalProjectiles.push(proj);
-             }
-        });
-        // Note: The above logic is slightly duplicated/messy. 
-        // Correct optimized flow:
-        // 1. Update positions of existing projectiles.
-        // 2. Add new projectiles.
-        // 3. Check collisions for ALL.
-        // 4. Save survivors.
-        
+        // 4. Collision Detection & Filtering
         const nextProjectiles: ProjectileEntity[] = [];
         
-        // Existing
-        state.projectiles.forEach(p => { p.x += 2; });
-        
-        // Merge
-        const activeProjectiles = [...state.projectiles, ...newProjectiles];
-        
-        activeProjectiles.forEach(proj => {
+        allToCheck.forEach(proj => {
              let hit = false;
              // Optimization: Scan sorted zombies.
              const hitTarget = currentZombies.find(z => {
@@ -626,7 +531,10 @@ export default function App() {
                  });
              }
 
-             if (!hit && proj.x < 100) nextProjectiles.push(proj);
+             // Only keep projectiles that didn't hit and are within screen bounds
+             if (!hit && proj.x < 100) {
+                 nextProjectiles.push(proj);
+             }
         });
 
 
