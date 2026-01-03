@@ -29,9 +29,9 @@
       }
 
       /* GPU Acceleration Class for Moving Entities */
-      /* FIXED: Removed 'will-change' to prevent layer explosion/ghosting on iOS */
       .gpu-accelerated {
         transform: translateZ(0);
+        will-change: left, transform; /* Tell browser these change often */
         backface-visibility: hidden;
         perspective: 1000px;
       }

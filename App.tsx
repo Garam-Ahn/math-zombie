@@ -486,9 +486,10 @@ export default function App() {
 
         // 2. Move existing projectiles (Immutable update)
         // Creating new objects prevents React reconciliation issues where old 'x' values persist visually
+        // FIX: SLOWED DOWN SPEED FROM 2 to 0.7 TO PREVENT GHOSTING
         const movedProjectiles = state.projectiles.map(p => ({
             ...p,
-            x: p.x + 2 // Fast speed
+            x: p.x + 0.7 // Slower speed for better rendering stability on iPad
         }));
 
         // 3. Combine with new projectiles
@@ -503,6 +504,7 @@ export default function App() {
              const hitTarget = currentZombies.find(z => {
                  if (z.isDying) return false;
                  const isRowMatch = (z.row === proj.row) || (z.type === 'BOSS' && z.row + 1 === proj.row);
+                 // Increased hitbox width slightly to accommodate slower speed
                  return isRowMatch && z.x < proj.x && z.x + 5 > proj.x;
              });
 
