@@ -7,36 +7,31 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Math Zombies">
-    <meta name="theme-color" content="#4a2c2a">
+    <meta name="theme-color" content="#0f172a">
     <link rel="manifest" href="/manifest.json">
     <title>Math vs Zombies</title>
-    <!-- We keep CDN for Tailwind to keep it simple, but in a real prod app, installing it via postcss is better. -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Titan One font for that "Mobile Game" cartoon look -->
     <link href="https://fonts.googleapis.com/css2?family=Titan+One&display=swap" rel="stylesheet">
     <style>
       body {
         overscroll-behavior: none;
         touch-action: none;
         font-family: 'Titan One', cursive;
-        background-color: #2a2a2a;
+        background-color: #0f172a;
       }
       
-      /* PERFORMANCE FIX: No Filters, No fancy rendering */
       img, svg {
         image-rendering: auto;
-        shape-rendering: optimizeSpeed; /* Prefer speed over geometry precision */
+        shape-rendering: optimizeSpeed;
       }
 
-      /* GPU Acceleration Class for Moving Entities */
       .gpu-accelerated {
         transform: translateZ(0);
-        will-change: left, transform; /* Tell browser these change often */
+        will-change: left, transform;
         backface-visibility: hidden;
         perspective: 1000px;
       }
 
-      /* Simplified Animations */
       @keyframes float {
         0% { transform: translate3d(0, 0, 0); }
         50% { transform: translate3d(0, -8px, 0); }
@@ -50,10 +45,8 @@
         100% { transform: translate3d(-50%, 0, 0) rotate(-3deg); }
       }
       .animate-walk { animation: zombieWalk 1.2s infinite linear; }
-
-      /* Removed complex animations (Attack, Shoot) to reduce compositing layers on old devices */
       
-      .animate-hit { filter: brightness(2); } /* Simple brightness instead of complex transform */
+      .animate-hit { filter: brightness(2) contrast(1.5); }
 
       @keyframes shakeDying {
         0% { transform: translate3d(-50%, 0, 0) rotate(0deg); }
@@ -64,25 +57,22 @@
       }
       .animate-dying { animation: shakeDying 0.2s infinite; }
       
-      /* Add Flash Animation for Revenge Success */
       @keyframes flash {
           0% { opacity: 1; }
           100% { opacity: 0; }
       }
       .animate-flash { animation: flash 0.5s ease-out forwards; }
 
-      /* UI Textures - Simplified */
       .wood-panel {
-        background-color: #8d6e63;
-        /* Removed gradient texture for performance */
-        border: 4px solid #4e342e;
+        background-color: #1e293b; /* Darker Slate for Night */
+        border: 4px solid #334155;
         border-radius: 12px;
-        box-shadow: 0 4px 0 rgba(0,0,0,0.5); /* Simple shadow */
+        box-shadow: 0 0 20px rgba(0,0,0,0.8);
       }
 
       .glossy-btn {
-        background-color: #16a34a; /* Flat color */
-        border-bottom: 4px solid #14532d;
+        background-color: #22c55e;
+        border-bottom: 4px solid #166534;
         border-radius: 8px;
         transition: transform 0.1s;
       }
@@ -95,23 +85,18 @@
         background-color: #ef4444;
         border-bottom: 4px solid #991b1b;
       }
-      .glossy-red:active {
-        transform: translateY(4px);
-        border-bottom: 0;
-      }
 
-      /* Simplified Lawn */
+      /* NEON NIGHT LAWN */
       .lawn-bg {
-        background-color: #4ade80;
-        /* Sharper checkerboard with Borders */
+        background-color: #064e3b;
         background-image: 
-          linear-gradient(45deg, #22c55e 25%, transparent 25%, transparent 75%, #22c55e 75%, #22c55e), 
-          linear-gradient(45deg, #22c55e 25%, transparent 25%, transparent 75%, #22c55e 75%, #22c55e);
-        background-size: 40px 40px;
-        background-position: 0 0, 20px 20px;
+          linear-gradient(45deg, #065f46 25%, transparent 25%, transparent 75%, #065f46 75%, #065f46), 
+          linear-gradient(45deg, #065f46 25%, transparent 25%, transparent 75%, #065f46 75%, #065f46);
+        background-size: 60px 60px;
+        background-position: 0 0, 30px 30px;
+        box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
       }
 
-      /* Orientation Lock Warning */
       #rotate-warning {
         display: none;
       }
@@ -135,16 +120,13 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-stone-900 text-white overflow-hidden select-none">
+  <body class="bg-slate-950 text-white overflow-hidden select-none">
     <div id="root"></div>
-    
-    <!-- Rotate Warning Overlay -->
-    <div id="rotate-warning" class="fixed inset-0 z-[100] bg-black flex-col items-center justify-center text-center p-8">
+    <div id="rotate-warning" class="fixed inset-0 z-[100] bg-slate-950 flex-col items-center justify-center text-center p-8">
       <div class="text-6xl mb-4 animate-bounce">🔄</div>
-      <h1 class="text-3xl text-yellow-400 font-bold mb-4">가로로 돌려주세요!</h1>
-      <p class="text-stone-300">이 게임은 가로 모드에 최적화되어 있습니다.</p>
+      <h1 class="text-3xl text-emerald-400 font-bold mb-4">가로로 돌려주세요!</h1>
+      <p class="text-slate-400">밤의 정원은 가로 모드에서 더 잘 보입니다.</p>
     </div>
-
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

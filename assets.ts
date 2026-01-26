@@ -1,210 +1,225 @@
 
-// OPTIMIZED FLAT ASSETS FOR OLDER DEVICES
-// No Gradients (<defs>), No complex filters. Solid fills only.
+// PREMIUM STYLIZED ASSETS
+// Using layered paths and shading to simulate a high-quality concept art look.
 
-const SVG_START = (content: string) => `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="optimizeSpeed">${content}</svg>`;
+const SVG_START = (content: string) => `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">${content}</svg>`;
 
 export const SVG_COIN = SVG_START(`
-<circle cx="50" cy="50" r="40" fill="#eab308" stroke="#854d0e" stroke-width="4" />
-<text x="50" y="65" font-family="monospace" font-weight="bold" font-size="50" text-anchor="middle" fill="#713f12">$</text>
-<circle cx="50" cy="50" r="30" fill="none" stroke="#fef08a" stroke-width="2" opacity="0.5" />
+<circle cx="50" cy="50" r="42" fill="#854d0e" />
+<circle cx="50" cy="50" r="38" fill="#eab308" />
+<circle cx="50" cy="50" r="32" fill="#fbce44" />
+<text x="50" y="68" font-family="Titan One, cursive" font-weight="bold" font-size="55" text-anchor="middle" fill="#713f12" style="filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.2))">$</text>
+<path d="M30 30 Q50 15 70 30" fill="none" stroke="#fefce8" stroke-width="4" opacity="0.4" stroke-linecap="round" />
 `);
 
 export const SVG_LOCK = SVG_START(`
-<!-- Shackle -->
-<path d="M30 40 L30 25 Q30 10 50 10 Q70 10 70 25 L70 40" fill="none" stroke="#9ca3af" stroke-width="8" stroke-linecap="round" />
-<!-- Body -->
-<rect x="20" y="40" width="60" height="50" rx="5" fill="#f59e0b" stroke="#b45309" stroke-width="3" />
-<!-- Keyhole -->
-<circle cx="50" cy="60" r="6" fill="#451a03" />
-<path d="M50 60 L44 80 L56 80 Z" fill="#451a03" />
+<path d="M30 45 L30 25 Q30 8 50 8 Q70 8 70 25 L70 45" fill="none" stroke="#64748b" stroke-width="10" stroke-linecap="round" />
+<rect x="15" y="40" width="70" height="52" rx="10" fill="#f59e0b" stroke="#92400e" stroke-width="4" />
+<rect x="25" y="50" width="50" height="32" rx="5" fill="#fbbf24" opacity="0.3" />
+<circle cx="50" cy="65" r="8" fill="#451a03" />
+<path d="M50 65 L44 85 L56 85 Z" fill="#451a03" />
 `);
 
-// --- PLANTS (FLAT) ---
+// --- PLANTS (STYLIZED CONCEPT STYLE) ---
 
 export const SVG_PEASHOOTER = (level: number) => SVG_START(`
-<!-- Shadow -->
-<ellipse cx="50" cy="90" rx="25" ry="6" fill="#000000" opacity="0.2" />
+<!-- Ground Shadow -->
+<ellipse cx="50" cy="92" rx="28" ry="6" fill="#000000" opacity="0.25" />
 
-<!-- Leaves -->
-<path d="M50 90 Q30 70 20 90 Q30 100 50 90 Z" fill="#15803d" />
-<path d="M50 90 Q70 70 80 90 Q70 100 50 90 Z" fill="#15803d" />
+<!-- Roots/Base Leaves -->
+<path d="M50 90 Q20 75 10 90 Q30 105 50 90 Z" fill="#14532d" />
+<path d="M50 90 Q80 75 90 90 Q70 105 50 90 Z" fill="#15803d" />
+<path d="M50 95 Q50 75 35 95" fill="#166534" />
 
-<!-- Stem -->
-<path d="M50 90 Q40 60 45 50" fill="none" stroke="#16a34a" stroke-width="6" stroke-linecap="round" />
+<!-- Detailed Stem -->
+<path d="M50 90 C45 75 42 65 48 45" fill="none" stroke="#16a34a" stroke-width="8" stroke-linecap="round" />
+<path d="M52 85 C48 75 45 65 50 45" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" opacity="0.6" />
 
-<!-- Head Group -->
-<g transform="translate(5, 0)">
-    <!-- Leaf hair -->
-    <path d="M35 30 Q25 10 45 20" fill="#22c55e" stroke="#14532d" stroke-width="1" />
-
-    <!-- Main Head Sphere -->
-    <circle cx="45" cy="40" r="22" fill="${level > 2 ? '#fcd34d' : '#4ade80'}" stroke="#14532d" stroke-width="2" />
+<!-- Head Body -->
+<g transform="translate(5, -5)">
+    <!-- Leafy Back Hair -->
+    <path d="M30 35 Q10 15 35 25" fill="#15803d" stroke="#052e16" stroke-width="1.5" />
     
-    <!-- Level 2+ Helmet/Upgrade Indicator -->
-    ${level > 1 ? `<path d="M25 35 Q45 10 65 35" fill="none" stroke="${level > 2 ? '#f59e0b' : '#3b82f6'}" stroke-width="4" stroke-linecap="round" />` : ''}
+    <!-- Main Head -->
+    <circle cx="45" cy="40" r="24" fill="${level > 2 ? '#facc15' : '#22c55e'}" stroke="#052e16" stroke-width="3" />
+    <circle cx="38" cy="32" r="8" fill="white" opacity="0.15" /> <!-- Shine -->
 
-    <!-- Snout -->
-    <path d="M60 25 L80 15 L80 65 L60 55 Z" fill="#22c55e" stroke="#14532d" stroke-width="2" />
-    <ellipse cx="80" cy="40" rx="6" ry="25" fill="#14532d" />
-    <ellipse cx="80" cy="40" rx="4" ry="20" fill="#000" />
+    <!-- Snout / Cannon -->
+    <path d="M65 28 L85 18 Q90 18 90 25 L90 55 Q90 62 85 62 L65 52" fill="${level > 2 ? '#eab308' : '#16a34a'}" stroke="#052e16" stroke-width="3" />
+    <ellipse cx="88" cy="40" rx="6" ry="24" fill="#052e16" />
+    <ellipse cx="86" cy="40" rx="4" ry="18" fill="#000" />
     
-    <!-- Eyes -->
-    <circle cx="38" cy="35" r="5" fill="black" />
-    <circle cx="36" cy="33" r="1.5" fill="white" />
-    <circle cx="52" cy="35" r="5" fill="black" />
-    <circle cx="50" cy="33" r="1.5" fill="white" />
+    <!-- Eyes - More expressive -->
+    <circle cx="40" cy="38" r="7" fill="white" stroke="#052e16" stroke-width="1" />
+    <circle cx="41" cy="38" r="4" fill="black" />
+    <circle cx="42" cy="36" r="1.5" fill="white" />
+    
+    <circle cx="58" cy="38" r="7" fill="white" stroke="#052e16" stroke-width="1" />
+    <circle cx="57" cy="38" r="4" fill="black" />
+    <circle cx="56" cy="36" r="1.5" fill="white" />
+
+    <!-- Level Upgrade Details -->
+    ${level > 1 ? `
+        <path d="M28 28 Q45 5 62 28" fill="none" stroke="${level > 2 ? '#ef4444' : '#3b82f6'}" stroke-width="5" stroke-linecap="round" />
+        <path d="M35 20 L45 10 L55 20" fill="none" stroke="white" stroke-width="2" opacity="0.5" />
+    ` : ''}
 </g>
 `);
 
 export const SVG_SUNFLOWER = (level: number) => SVG_START(`
-<!-- Shadow -->
-<ellipse cx="50" cy="90" rx="25" ry="6" fill="#000000" opacity="0.2" />
+<ellipse cx="50" cy="92" rx="25" ry="5" fill="#000" opacity="0.2" />
+<path d="M50 90 Q55 70 50 50" fill="none" stroke="#166534" stroke-width="6" stroke-linecap="round" />
 
-<!-- Stem -->
-<path d="M50 90 Q55 70 50 55" fill="none" stroke="#15803d" stroke-width="5" stroke-linecap="round" />
-<path d="M25 85 Q35 95 50 90" fill="#15803d" />
-<path d="M75 85 Q65 95 50 90" fill="#15803d" />
-
-<g class="petals" style="transform-origin: 50% 50%;">
-  ${[0,45,90,135,180,225,270,315].map(deg => 
-    `<path d="M50 15 L60 35 L50 45 L40 35 Z" fill="${level > 1 ? '#facc15' : '#fef08a'}" stroke="#ca8a04" stroke-width="1" transform="rotate(${deg} 50 50)" />`
-  ).join('')}
+<!-- Stylized Petals -->
+<g transform="translate(50, 50)">
+    ${[0,45,90,135,180,225,270,315].map(deg => `
+        <g transform="rotate(${deg})">
+            <path d="M-12 -35 Q0 -55 12 -35 L5 -15 L-5 -15 Z" fill="${level > 1 ? '#fbbf24' : '#fde047'}" stroke="#92400e" stroke-width="2" />
+            <path d="M-6 -38 Q0 -48 6 -38" fill="none" stroke="white" stroke-width="2" opacity="0.4" />
+        </g>
+    `).join('')}
 </g>
 
-<!-- Face -->
-<circle cx="50" cy="50" r="20" fill="#d97706" stroke="#78350f" stroke-width="2" />
-${level > 1 ? '<circle cx="50" cy="50" r="23" fill="none" stroke="#facc15" stroke-width="2" stroke-dasharray="4,4" />' : ''}
+<!-- Center Face -->
+<circle cx="50" cy="50" r="22" fill="#78350f" stroke="#451a03" stroke-width="3" />
+<circle cx="50" cy="50" r="18" fill="#92400e" />
 
-<!-- Face Details -->
-<ellipse cx="43" cy="45" rx="3" ry="5" fill="black" />
-<ellipse cx="57" cy="45" rx="3" ry="5" fill="black" />
-<path d="M42 58 Q50 63 58 58" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" />
+<!-- Cute Details -->
+<circle cx="42" cy="45" r="3" fill="black" />
+<circle cx="58" cy="45" r="3" fill="black" />
+<path d="M44 58 Q50 64 56 58" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.8" />
 `);
 
 export const SVG_WALLNUT = (level: number) => SVG_START(`
-<!-- Shadow -->
-<ellipse cx="50" cy="92" rx="25" ry="5" fill="#000000" opacity="0.2" />
+<ellipse cx="50" cy="94" rx="30" ry="6" fill="#000" opacity="0.25" />
+<!-- Chunky Nut Body -->
+<path d="M20 45 C20 15 50 5 80 15 C85 45 85 85 50 92 C15 85 15 45 20 45 Z" fill="#92400e" stroke="#451a03" stroke-width="4" />
+<path d="M30 30 Q50 20 70 30" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.2" />
 
-<!-- Body -->
-<path d="M20 40 Q20 10 50 10 Q80 10 80 40 Q80 90 50 90 Q20 90 20 40 Z" fill="#d97706" stroke="${level > 1 ? '#facc15' : '#78350f'}" stroke-width="3" />
+<!-- Expressions -->
+<g transform="translate(0, 5)">
+    <ellipse cx="38" cy="40" r="10" fill="white" stroke="#451a03" stroke-width="1" />
+    <circle cx="41" cy="42" r="3" fill="black" />
+    
+    <ellipse cx="62" cy="40" r="10" fill="white" stroke="#451a03" stroke-width="1" />
+    <circle cx="59" cy="42" r="3" fill="black" />
 
-<!-- Eyes -->
-<circle cx="38" cy="45" r="8" fill="white" />
-<circle cx="40" cy="45" r="2.5" fill="black" />
-<circle cx="62" cy="45" r="8" fill="white" />
-<circle cx="60" cy="45" r="2.5" fill="black" />
-
-<!-- Mouth -->
-<path d="M45 70 L55 70" stroke="#451a03" stroke-width="2" stroke-linecap="round" />
+    <path d="M45 70 Q50 75 55 70" fill="none" stroke="#451a03" stroke-width="3" stroke-linecap="round" />
+</g>
+${level > 1 ? `<path d="M20 50 L80 50" stroke="white" stroke-width="10" opacity="0.1" stroke-dasharray="5,15" />` : ''}
 `);
 
 export const SVG_CHERRYBOMB = (level: number) => SVG_START(`
-<!-- Shadow -->
-<ellipse cx="50" cy="90" rx="25" ry="6" fill="#000000" opacity="0.2" />
+<ellipse cx="50" cy="92" rx="35" ry="8" fill="#000" opacity="0.3" />
+<!-- Thick Twisted Stem -->
+<path d="M50 50 C55 30 65 15 85 8" fill="none" stroke="#064e3b" stroke-width="6" stroke-linecap="round" />
+<path d="M50 50 C45 35 35 20 25 15" fill="none" stroke="#064e3b" stroke-width="6" stroke-linecap="round" />
 
-<!-- Stems -->
-<path d="M50 50 Q60 20 80 10" fill="none" stroke="#166534" stroke-width="4" stroke-linecap="round"/>
-<path d="M50 50 Q40 20 30 15" fill="none" stroke="#166534" stroke-width="4" stroke-linecap="round"/>
+<!-- Left Cherry (Angry) -->
+<g transform="translate(32, 65)">
+    <circle r="26" fill="#b91c1c" stroke="#450a0a" stroke-width="4" />
+    <circle r="20" fill="#dc2626" />
+    <path d="M-10 -5 L10 -5" stroke="black" stroke-width="4" stroke-linecap="round" />
+    <circle cx="-8" cy="5" r="3" fill="black" />
+    <circle cx="8" cy="5" r="3" fill="black" />
+</g>
 
-<!-- Cherry 1 -->
-<circle cx="35" cy="65" r="22" fill="#ef4444" stroke="#7f1d1d" stroke-width="2"/>
-<path d="M25 62 L35 70" stroke="black" stroke-width="2"/>
-<path d="M45 62 L35 70" stroke="black" stroke-width="2"/>
+<!-- Right Cherry (Angry) -->
+<g transform="translate(68, 70)">
+    <circle r="28" fill="#991b1b" stroke="#450a0a" stroke-width="4" />
+    <circle r="22" fill="#b91c1c" />
+    <path d="M-12 -5 L12 -5" stroke="black" stroke-width="4" stroke-linecap="round" />
+    <circle cx="-10" cy="5" r="3" fill="black" />
+    <circle cx="10" cy="5" r="3" fill="black" />
+</g>
 
-<!-- Cherry 2 -->
-<circle cx="65" cy="70" r="24" fill="#dc2626" stroke="#7f1d1d" stroke-width="2"/>
-<path d="M55 72 L65 80" stroke="black" stroke-width="2"/>
-<path d="M75 72 L65 80" stroke="black" stroke-width="2"/>
-
-<!-- Fuse -->
-<path d="M80 10 Q85 0 90 5" fill="none" stroke="#d97706" stroke-width="2" />
-<circle cx="90" cy="5" r="4" fill="#facc15" />
+<!-- Fuse Spark -->
+<circle cx="85" cy="8" r="6" fill="#facc15" class="animate-pulse" />
+<circle cx="85" cy="8" r="3" fill="white" />
 `);
 
-// --- ZOMBIES (FLAT) ---
+// --- ZOMBIES (DETAILED CONCEPT STYLE) ---
 
-const ZOMBIE_BASE = `
-  <!-- Shadow -->
-  <ellipse cx="50" cy="95" rx="20" ry="4" fill="#000000" opacity="0.2" />
-
-  <!-- Legs -->
-  <path d="M45 80 L35 100" stroke="#374151" stroke-width="6" stroke-linecap="round"/>
-  <path d="M55 80 L65 100" stroke="#1f2937" stroke-width="6" stroke-linecap="round"/>
-  
-  <!-- Coat -->
-  <path d="M35 50 L65 50 L70 85 L30 85 Z" fill="#78350f" stroke="#271300" stroke-width="2"/>
-  <path d="M48 50 L52 50 L55 70 L45 70 Z" fill="#ef4444" /> <!-- Tie -->
-  
-  <!-- Arms -->
-  <path d="M35 55 L15 65" stroke="#5d3515" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="15" cy="65" r="5" fill="#a3e635"/>
+const ZOMBIE_BODY = `
+  <ellipse cx="50" cy="96" rx="25" ry="5" fill="#000" opacity="0.3" />
+  <!-- Pants & Legs -->
+  <path d="M42 75 L35 98" stroke="#1e293b" stroke-width="9" stroke-linecap="round" />
+  <path d="M58 75 L65 98" stroke="#0f172a" stroke-width="9" stroke-linecap="round" />
+  <!-- Ragged Suit -->
+  <path d="M30 45 L70 45 L75 80 Q50 85 25 80 Z" fill="#422006" stroke="#271300" stroke-width="3" />
+  <path d="M45 45 L55 45 L52 70 L48 70 Z" fill="#991b1b" /> <!-- Red Tie -->
+  <path d="M30 50 L20 75" stroke="#5d3515" stroke-width="8" stroke-linecap="round" />
+  <path d="M20 75 Q15 75 12 80" stroke="#a3e635" stroke-width="6" stroke-linecap="round" /> <!-- Green Hand -->
 `;
 
 const ZOMBIE_HEAD = `
-  <path d="M35 15 Q30 15 30 35 Q30 55 50 55 Q70 55 70 35 Q70 15 65 15" fill="#a3e635" stroke="#365314" stroke-width="2"/>
-  <circle cx="42" cy="30" r="7" fill="white" stroke="#365314" stroke-width="1"/>
-  <circle cx="42" cy="30" r="2" fill="black"/>
-  <circle cx="60" cy="30" r="6" fill="white" stroke="#365314" stroke-width="1"/>
-  <circle cx="60" cy="30" r="1.5" fill="black"/>
-  <rect x="48" y="48" width="5" height="5" fill="#fefce8" stroke="#365314" stroke-width="1"/>
+  <path d="M32 15 Q25 15 25 40 Q25 60 50 60 Q75 60 75 40 Q75 15 68 15 Z" fill="#a3e635" stroke="#1a2e05" stroke-width="3" />
+  <path d="M35 25 Q50 15 65 25" fill="none" stroke="white" stroke-width="10" opacity="0.2" />
+  
+  <!-- Derpy Eyes -->
+  <circle cx="40" cy="35" r="9" fill="white" stroke="#1a2e05" stroke-width="1.5" />
+  <circle cx="41" cy="36" r="3" fill="black" />
+  
+  <circle cx="62" cy="35" r="7" fill="white" stroke="#1a2e05" stroke-width="1.5" />
+  <circle cx="61" cy="34" r="2" fill="black" />
+  
+  <!-- Mouth / Teeth -->
+  <rect x="45" y="52" width="8" height="6" fill="#fefce8" stroke="#1a2e05" stroke-width="1" />
 `;
 
 export const SVG_ZOMBIE_NORMAL = SVG_START(`
-${ZOMBIE_BASE}
-<g class="headGroup">
-  ${ZOMBIE_HEAD}
-  <path d="M45 15 L45 5 M50 15 L52 7 M55 15 L58 8" stroke="black" stroke-width="2"/>
+${ZOMBIE_BODY}
+<g transform="translate(0, -5)">
+    ${ZOMBIE_HEAD}
+    <path d="M45 15 Q45 5 40 2" fill="none" stroke="black" stroke-width="2" />
+    <path d="M55 15 Q58 5 62 8" fill="none" stroke="black" stroke-width="2" />
 </g>
 `);
 
 export const SVG_ZOMBIE_CONE = SVG_START(`
-${ZOMBIE_BASE}
-<g class="headGroup">
-  ${ZOMBIE_HEAD}
-  <!-- Cone -->
-  <path d="M25 20 L75 20 L50 -15 Z" fill="#ea580c" stroke="#9a3412" stroke-width="2"/>
-  <ellipse cx="50" cy="20" rx="26" ry="5" fill="#c2410c"/>
+${ZOMBIE_BODY}
+<g transform="translate(0, -5)">
+    ${ZOMBIE_HEAD}
+    <path d="M22 25 L78 25 L50 -25 Z" fill="#ea580c" stroke="#7c2d12" stroke-width="4" />
+    <path d="M30 18 L70 18" stroke="white" stroke-width="6" opacity="0.3" stroke-linecap="round" />
+    <ellipse cx="50" cy="25" rx="30" ry="6" fill="#c2410c" stroke="#7c2d12" stroke-width="2" />
 </g>
 `);
 
 export const SVG_ZOMBIE_BUCKET = SVG_START(`
-${ZOMBIE_BASE}
-<g class="headGroup">
-  ${ZOMBIE_HEAD}
-  <!-- Bucket -->
-  <path d="M30 10 L70 10 L68 35 L32 35 Z" fill="#9ca3af" stroke="#374151" stroke-width="2" transform="translate(0, -10)"/>
-  <circle cx="40" cy="5" r="4" fill="#ef4444" opacity="0.8"/>
+${ZOMBIE_BODY}
+<g transform="translate(0, -5)">
+    ${ZOMBIE_HEAD}
+    <path d="M28 5 L72 5 L70 35 Q50 40 30 35 Z" fill="#94a3b8" stroke="#334155" stroke-width="4" />
+    <path d="M35 12 L65 12" stroke="white" stroke-width="8" opacity="0.3" stroke-linecap="round" />
+    <path d="M28 20 L20 20 L20 5 L28 5" fill="none" stroke="#475569" stroke-width="3" />
 </g>
 `);
 
 export const SVG_ZOMBIE_BOSS = SVG_START(`
-<!-- Shadow -->
-<ellipse cx="50" cy="95" rx="35" ry="8" fill="#000000" opacity="0.2" />
+<ellipse cx="50" cy="96" rx="40" ry="10" fill="#000" opacity="0.3" />
+<!-- Heavy Metal Legs -->
+<rect x="25" y="80" width="12" height="18" fill="#334155" stroke="#0f172a" stroke-width="3" />
+<rect x="63" y="80" width="12" height="18" fill="#334155" stroke="#0f172a" stroke-width="3" />
 
-<!-- Robot Legs -->
-<path d="M25 85 L20 100" stroke="#374151" stroke-width="10" stroke-linecap="round"/>
-<path d="M75 85 L80 100" stroke="#374151" stroke-width="10" stroke-linecap="round"/>
+<!-- Massive Mech Body -->
+<path d="M15 35 L85 35 L90 85 L10 85 Z" fill="#475569" stroke="#0f172a" stroke-width="5" />
+<rect x="35" y="45" width="30" height="25" fill="#1e293b" rx="5" />
+<circle cx="50" cy="57" r="8" fill="#dc2626" class="animate-pulse" />
 
-<!-- Robot Body -->
-<path d="M20 30 L80 30 L85 85 L15 85 Z" fill="#6b7280" stroke="#1f2937" stroke-width="3"/>
-<rect x="40" y="50" width="20" height="15" fill="#374151" rx="2"/> 
-<circle cx="50" cy="57" r="4" fill="#ef4444" /> 
+<!-- Mech Arms -->
+<path d="M15 45 L-5 65" stroke="#334155" stroke-width="12" stroke-linecap="round" />
+<circle cx="-5" cy="65" r="10" fill="#1e293b" stroke="#0f172a" stroke-width="2" />
+<path d="M85 45 L105 65" stroke="#334155" stroke-width="12" stroke-linecap="round" />
+<circle cx="105" cy="65" r="10" fill="#1e293b" stroke="#0f172a" stroke-width="2" />
 
-<!-- Robot Arms -->
-<path d="M20 40 L5 60" stroke="#374151" stroke-width="8" stroke-linecap="round"/>
-<circle cx="5" cy="60" r="6" fill="#4b5563"/>
-<path d="M80 40 L95 60" stroke="#374151" stroke-width="8" stroke-linecap="round"/>
-<circle cx="95" cy="60" r="6" fill="#4b5563"/>
+<!-- Reinforced Glass -->
+<path d="M25 35 Q25 -10 50 -10 Q75 -10 75 35" fill="#bae6fd" stroke="#0ea5e9" stroke-width="3" opacity="0.6" />
 
-<!-- Glass Dome -->
-<path d="M25 30 Q25 0 50 0 Q75 0 75 30" fill="#a5f3fc" stroke="#0891b2" stroke-width="2" opacity="0.7"/>
-
-<!-- Dr. Zomboss -->
-<g transform="translate(40, 10) scale(0.6)">
-    <path d="M10 20 Q10 0 25 0 Q40 0 40 20 L40 40 L10 40 Z" fill="#a3e635" stroke="#365314" stroke-width="2"/>
-    <rect x="15" y="40" width="20" height="15" fill="white"/>
-    <circle cx="20" cy="15" r="3" fill="black"/>
-    <circle cx="30" cy="15" r="3" fill="black"/>
+<!-- Boss Himself -->
+<g transform="translate(42, 5) scale(0.5)">
+    <path d="M10 20 Q10 0 25 0 Q40 0 40 20 L40 45 L10 45 Z" fill="#a3e635" stroke="#1a2e05" stroke-width="3" />
+    <circle cx="20" cy="15" r="4" fill="white" stroke="black" stroke-width="1" />
+    <circle cx="30" cy="15" r="4" fill="white" stroke="black" stroke-width="1" />
 </g>
 `);

@@ -17,9 +17,7 @@ const generateRandomProblem = (tables: number[]): MathProblem => {
 };
 
 export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availableTables, onComplete }) => {
-  const [phase, setPhase] = useState<1 | 2>(1); 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [input, setInput] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
 
@@ -30,113 +28,78 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
     };
   }, []);
 
-  useEffect(() => {
-    if (phase === 2) {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key >= '0' && e.key <= '9') {
-                handleNumberClick(parseInt(e.key));
-            } else if (e.key === 'Backspace') {
-                setInput(prev => prev.slice(0, -1));
-            } else if (e.key === 'Enter' || e.code === 'Space') {
-                e.preventDefault();
-                handleInputSubmit();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, input, currentIndex]);
-
-  const uniqueWrongProblems = useMemo(() => {
-    const map = new Map<string, MathProblem>();
+  // Prepare the consolidated list of revenge problems (all multiple choice)
+  const revengeProblems = useMemo(() => {
+    const uniqueMap = new Map<string, MathProblem>();
+    
+    // 1. Add unique wrong problems first
     wrongHistory.filter(h => !h.isCorrect).forEach(h => {
       const key = `${h.factorA}x${h.factorB}`;
-      if (!map.has(key)) {
-        map.set(key, { factorA: h.factorA, factorB: h.factorB, answer: h.factorA * h.factorB });
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, { factorA: h.factorA, factorB: h.factorB, answer: h.factorA * h.factorB });
       }
     });
-    return Array.from(map.values());
-  }, [wrongHistory]);
 
-  const phase2Problems = useMemo(() => {
-    const problems: MathProblem[] = [...uniqueWrongProblems];
+    const problems: MathProblem[] = Array.from(uniqueMap.values());
+    
+    // 2. Fill the rest with random problems up to the count
     while (problems.length < REVENGE_PROBLEM_COUNT) {
       problems.push(generateRandomProblem(availableTables));
     }
-    // Limit to REVENGE_PROBLEM_COUNT
+    
+    // Shuffle and slice to keep it focused
     return problems.sort(() => Math.random() - 0.5).slice(0, REVENGE_PROBLEM_COUNT);
-  }, [uniqueWrongProblems, availableTables]);
+  }, [wrongHistory, availableTables]);
 
-  const currentProblem = phase === 1 ? uniqueWrongProblems[currentIndex] : phase2Problems[currentIndex];
+  const currentProblem = revengeProblems[currentIndex];
   
-  // Memoize options so they don't reshuffle on re-renders (e.g. wrong answer shake)
-  const phase1Options = useMemo(() => {
-    if (!currentProblem || phase !== 1) return [];
+  // Generate 4 options (1 correct + 3 distractors)
+  const currentOptions = useMemo(() => {
+    if (!currentProblem) return [];
     
     const ans = currentProblem.answer;
-    const distractors = [ans + currentProblem.factorA, ans - currentProblem.factorB, ans + 10]
-        .filter(d => d > 0 && d !== ans)
-        .slice(0, 2);
+    const distractors = new Set<number>();
     
-    // Shuffle options once per problem
-    return [ans, ...distractors].sort(() => Math.random() - 0.5);
-  }, [currentProblem, phase]);
+    // Generate logical distractors
+    const candidates = [
+        ans + currentProblem.factorA, 
+        ans - currentProblem.factorA, 
+        ans + 10, 
+        ans - 10, 
+        ans + 5,
+        Math.max(1, ans - 5)
+    ];
 
-  useEffect(() => {
-     if (phase === 1 && uniqueWrongProblems.length === 0) {
-         setPhase(2); 
-     }
-  }, [phase, uniqueWrongProblems]);
+    candidates.forEach(c => {
+        if (c > 0 && c !== ans) distractors.add(c);
+    });
 
-  const handleMultipleChoice = (chosenAnswer: number) => {
+    const finalDistractors = Array.from(distractors).sort(() => Math.random() - 0.5).slice(0, 3);
+    return [ans, ...finalDistractors].sort(() => Math.random() - 0.5);
+  }, [currentProblem]);
+
+  const handleChoice = (chosenAnswer: number) => {
     if (!currentProblem) return;
+    
     if (chosenAnswer === currentProblem.answer) {
       audio.playCorrect();
-      setFeedback("Correct!");
+      setFeedback("정답입니다!");
       setTimeout(() => {
         setFeedback(null);
-        if (currentIndex + 1 < uniqueWrongProblems.length) {
+        if (currentIndex + 1 < revengeProblems.length) {
           setCurrentIndex(prev => prev + 1);
         } else {
-          setPhase(2);
-          setCurrentIndex(0);
+          audio.stopRevengeBGM();
+          onComplete();
         }
-      }, 500);
+      }, 600);
     } else {
       audio.playWrong();
       setShake(true);
       setTimeout(() => setShake(false), 500);
+      setFeedback("다시 한번 봐요!");
+      setTimeout(() => setFeedback(null), 1000);
     }
-  };
-
-  const handleInputSubmit = () => {
-    if (!currentProblem) return;
-    const val = parseInt(input, 10);
-    if (val === currentProblem.answer) {
-      audio.playCorrect();
-      setInput('');
-      if (currentIndex + 1 < phase2Problems.length) {
-        setCurrentIndex(prev => prev + 1);
-      } else {
-        audio.stopRevengeBGM();
-        onComplete();
-      }
-    } else {
-      audio.playWrong();
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      setInput('');
-      setFeedback("다시 생각해보세요!");
-      setTimeout(() => setFeedback(null), 1500);
-    }
-  };
-
-  const handleNumberClick = (num: number) => {
-      if (input.length < 3) {
-          setInput(prev => prev + num.toString());
-          audio.playCollect();
-      }
   };
 
   if (!currentProblem) return null;
@@ -145,108 +108,79 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
       {/* VIBRANT Colorful Box */}
       <div className={`
-          relative w-full max-w-4xl p-8 rounded-2xl 
-          bg-gradient-to-b from-purple-700 via-indigo-900 to-purple-950
-          border-[6px] border-yellow-400 shadow-[0_0_60px_rgba(168,85,247,0.6)] 
+          relative w-full max-w-4xl p-6 md:p-10 rounded-3xl 
+          bg-gradient-to-b from-purple-800 via-indigo-950 to-black
+          border-[8px] border-yellow-400 shadow-[0_0_80px_rgba(168,85,247,0.7)] 
           flex flex-col
           ${shake ? 'animate-pulse' : ''}
       `}>
         
-        {/* Glowing Header */}
-        <div className="flex justify-between items-center mb-6 pb-4 border-b-2 border-yellow-400/50">
-            <h2 className="text-3xl md:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-400 to-yellow-300 font-black drop-shadow-[0_2px_0_#000] tracking-widest uppercase italic">
-                {phase === 1 ? "⚡ REVENGE TIME ⚡" : "🔥 FINAL CHALLENGE 🔥"}
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6 pb-4 border-b-2 border-yellow-400/30">
+            <h2 className="text-3xl md:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-white to-yellow-300 font-black drop-shadow-[0_2px_0_#000] tracking-tighter uppercase italic">
+                ⚡ REVENGE LIGHTNING ⚡
             </h2>
-            <div className="bg-black/40 px-6 py-2 rounded-full border border-yellow-400/50 shadow-inner">
-                <span className="text-white text-2xl font-black tracking-widest">
-                    {phase === 1 
-                      ? `${currentIndex + 1} / ${uniqueWrongProblems.length}` 
-                      : `${currentIndex + 1} / ${REVENGE_PROBLEM_COUNT}`
-                    }
-                </span>
+            <div className="bg-yellow-400 text-black px-6 py-1 rounded-full font-black text-xl shadow-lg border-2 border-white">
+                {currentIndex + 1} / {revengeProblems.length}
             </div>
         </div>
 
-        <div className="flex flex-col landscape:flex-row gap-6 items-stretch flex-1">
+        <div className="flex flex-col landscape:flex-row gap-8 items-stretch flex-1 min-h-[300px]">
             
             {/* Left: Problem Display */}
-            <div className="flex-[1.2] bg-white rounded-xl border-4 border-indigo-500 shadow-[inset_0_0_20px_rgba(0,0,0,0.1)] flex flex-col items-center justify-center p-6 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-indigo-100 opacity-80"></div>
+            <div className="flex-1 bg-white/95 rounded-2xl border-4 border-indigo-500 shadow-2xl flex flex-col items-center justify-center p-8 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-white opacity-50"></div>
                 
-                <p className="text-indigo-600 mb-6 font-bold text-xl uppercase tracking-wider relative z-10">
-                    {phase === 1 ? "Revenge Logic: Active" : "No Time Limit"}
+                <p className="text-indigo-800 mb-8 font-black text-xl md:text-2xl uppercase tracking-widest relative z-10">
+                    CHALLENGE!
                 </p>
                 
-                <div className="text-6xl md:text-8xl text-indigo-950 font-black flex flex-nowrap items-center justify-center gap-2 md:gap-4 relative z-10 whitespace-nowrap">
+                <div className="text-7xl md:text-9xl text-indigo-950 font-black flex flex-nowrap items-center justify-center gap-4 relative z-10">
                     <span className={getNumberColorClass(currentProblem.factorA)}>{currentProblem.factorA}</span>
-                    <span className="text-indigo-400">×</span>
+                    <span className="text-indigo-300">×</span>
                     <span className={getNumberColorClass(currentProblem.factorB)}>{currentProblem.factorB}</span>
-                    <span className="text-indigo-400">=</span>
-                    {/* USER INPUT: Changed to Black */}
-                    <span className={`
-                        min-w-[120px] border-b-8 border-indigo-900 text-center text-black
-                    `}>
-                        {phase === 2 ? (input || "?") : "?"}
-                    </span>
+                    <span className="text-indigo-300">=</span>
+                    <span className="text-black border-b-8 border-indigo-900 min-w-[100px] text-center">?</span>
                 </div>
             </div>
 
-            {/* Right: Controls */}
-            <div className="flex-1 flex flex-col justify-center">
-                
-                {/* Phase 1: Multiple Choice */}
-                {phase === 1 && (
-                    <div className="flex flex-col gap-3 h-full justify-center">
-                        {phase1Options.map((opt, idx) => (
-                            <button 
-                                key={idx}
-                                onClick={() => handleMultipleChoice(opt)}
-                                className="w-full py-5 text-4xl font-black bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl hover:scale-105 border-b-8 border-orange-700 active:border-b-0 active:translate-y-2 transition-all shadow-lg text-shadow-md"
-                                style={{textShadow: '2px 2px 0 rgba(0,0,0,0.2)'}}
-                            >
-                                {opt}
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                {/* Phase 2: Keypad */}
-                {phase === 2 && (
-                     <div className="grid grid-cols-3 gap-3 h-full">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                            <button key={num} onClick={() => handleNumberClick(num)} 
-                                className="glossy-btn bg-indigo-600 hover:bg-indigo-500 text-black text-3xl md:text-4xl font-bold shadow-lg active:scale-95 transition-transform"
-                            >
-                                <span style={{ textShadow: 'none' }}>{num}</span>
-                            </button>
-                        ))}
-                        <button onClick={() => setInput(prev => prev.slice(0, -1))} 
-                            className="glossy-red bg-pink-600 hover:bg-pink-500 text-white text-xl md:text-2xl font-bold shadow-lg"
-                        >
-                            DEL
-                        </button>
-                        <button onClick={() => handleNumberClick(0)} 
-                            className="glossy-btn bg-indigo-600 hover:bg-indigo-500 text-black text-3xl md:text-4xl font-bold shadow-lg"
-                        >
-                            <span style={{ textShadow: 'none' }}>0</span>
-                        </button>
-                        <button onClick={handleInputSubmit} 
-                            className="bg-gradient-to-b from-green-400 to-green-600 text-white text-2xl md:text-3xl font-black rounded-lg border-b-4 border-green-800 shadow-lg active:border-b-0 active:translate-y-1 hover:brightness-110"
-                        >
-                            OK (Space)
-                        </button>
-                    </div>
-                )}
+            {/* Right: Objective Choices */}
+            <div className="flex-1 grid grid-cols-2 gap-4">
+                {currentOptions.map((opt, idx) => (
+                    <button 
+                        key={idx}
+                        onClick={() => handleChoice(opt)}
+                        className="
+                          relative overflow-hidden
+                          w-full h-full py-6 text-4xl md:text-6xl font-black 
+                          bg-gradient-to-b from-yellow-300 to-orange-500 
+                          text-white rounded-2xl border-b-[10px] border-orange-800 
+                          hover:scale-105 active:border-b-0 active:translate-y-2 
+                          transition-all shadow-xl
+                        "
+                        style={{textShadow: '3px 3px 0 rgba(0,0,0,0.3)'}}
+                    >
+                        <div className="absolute top-0 left-0 w-full h-full bg-white/20 -translate-y-1/2 rounded-[50%]"></div>
+                        <span className="relative z-10">{opt}</span>
+                    </button>
+                ))}
             </div>
         </div>
 
         {feedback && (
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50">
-                 <div className="bg-white/95 text-indigo-600 px-10 py-6 rounded-2xl text-4xl font-black animate-bounce border-4 border-indigo-600 shadow-2xl whitespace-nowrap">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[60]">
+                 <div className={`
+                    px-12 py-8 rounded-3xl text-5xl font-black animate-bounce shadow-2xl border-8
+                    ${feedback.includes('정답') ? 'bg-green-500 text-white border-white' : 'bg-red-500 text-white border-white'}
+                 `}>
                     {feedback}
                  </div>
             </div>
         )}
+
+        <p className="text-center text-white/40 mt-6 text-sm font-bold tracking-widest uppercase">
+            ⚡ 번개 에너지가 충전되고 있습니다 ⚡
+        </p>
       </div>
     </div>
   );

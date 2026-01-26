@@ -3,14 +3,27 @@ class AudioService {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private isMuted: boolean = false;
-  private bgmNodes: AudioScheduledSourceNode[] = [];
-  private revengeNodes: AudioScheduledSourceNode[] = [];
   
-  // Throttling Map
+  private bgmAudio: HTMLAudioElement | null = null;
+  private revengeAudio: HTMLAudioElement | null = null;
+  
   private lastPlayed: Record<string, number> = {};
+
+  // Atmospheric Night Garden BGM
+  private BGM_URL = "https://cdn.pixabay.com/audio/2022/01/21/audio_77f4851219.mp3"; // "Mystical/Night"
+  private REVENGE_URL = "https://cdn.pixabay.com/audio/2023/10/24/audio_9678e2d46e.mp3"; // "High Energy"
 
   constructor() {
     this.isMuted = false;
+    if (typeof window !== 'undefined') {
+        this.bgmAudio = new Audio(this.BGM_URL);
+        this.bgmAudio.loop = true;
+        this.bgmAudio.volume = 0.3;
+
+        this.revengeAudio = new Audio(this.REVENGE_URL);
+        this.revengeAudio.loop = true;
+        this.revengeAudio.volume = 0.4;
+    }
   }
 
   private initCtx() {
@@ -39,9 +52,12 @@ class AudioService {
     if (this.masterGain) {
       this.masterGain.gain.setTargetAtTime(this.isMuted ? 0 : 0.5, this.ctx!.currentTime, 0.05);
     }
+    if (this.bgmAudio) this.bgmAudio.muted = this.isMuted;
+    if (this.revengeAudio) this.revengeAudio.muted = this.isMuted;
   }
 
   private playTone(freq: number, dur: number, type: OscillatorType = 'sine', vol = 0.1) {
+    if (this.isMuted) return;
     this.initCtx();
     const osc = this.ctx!.createOscillator();
     const gain = this.ctx!.createGain();
@@ -58,20 +74,16 @@ class AudioService {
   playCollect() { this.playTone(880, 0.1, 'square', 0.05); }
   
   playShoot() { 
-    // Throttling: Max 10 shots per second
     const now = Date.now();
     if (now - (this.lastPlayed['shoot'] || 0) < 100) return;
     this.lastPlayed['shoot'] = now;
-    
     this.playTone(440, 0.05, 'triangle', 0.05); 
   } 
 
   playHit() { 
-    // Throttling: Max 5 hits sounds per second (it can get very noisy)
     const now = Date.now();
     if (now - (this.lastPlayed['hit'] || 0) < 200) return;
     this.lastPlayed['hit'] = now;
-
     this.playTone(110, 0.2, 'sawtooth', 0.1); 
   }
 
@@ -157,7 +169,6 @@ class AudioService {
   playRevengeSuccess() {
     this.initCtx();
     const now = this.ctx!.currentTime;
-    // Victory Fanfare
     const notes = [523.25, 659.25, 783.99, 1046.50, 523.25, 659.25, 783.99, 1046.50];
     notes.forEach((freq, i) => {
         const osc = this.ctx!.createOscillator();
@@ -177,18 +188,14 @@ class AudioService {
   playBossWarning() {
     this.initCtx();
     const now = this.ctx!.currentTime;
-    
-    // Siren effect
     const osc = this.ctx!.createOscillator();
     const gain = this.ctx!.createGain();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(400, now);
     osc.frequency.linearRampToValueAtTime(800, now + 1);
     osc.frequency.linearRampToValueAtTime(400, now + 2);
-    
     gain.gain.setValueAtTime(0.3, now);
     gain.gain.linearRampToValueAtTime(0, now + 2);
-    
     osc.connect(gain);
     gain.connect(this.masterGain!);
     osc.start();
@@ -198,7 +205,6 @@ class AudioService {
   playBossDefeat() {
     this.initCtx();
     this.playThunder();
-    // Low frequency boom
     const osc = this.ctx!.createOscillator();
     const gain = this.ctx!.createGain();
     osc.type = 'square';
@@ -212,121 +218,31 @@ class AudioService {
     osc.stop(this.ctx!.currentTime + 2);
   }
 
-  // --- BGM LOGIC ---
-
-  private playLoop(notes: {freq: number, dur: number}[], speed: number, type: OscillatorType) {
-    if (!this.ctx) return;
-    let time = this.ctx.currentTime;
-    
-    // Schedule loop for next 10 seconds to keep it continuous
-    // Note: Real production code would use AudioBuffers, this is a procedural hack
-    const loopDuration = notes.reduce((acc, n) => acc + n.dur, 0) * speed;
-    
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = type;
-    gain.gain.value = 0.05;
-    
-    // Sequencer logic simulation using an LFO on freq is hard, so we just return the node
-    // For simplicity in this constraints, we just play a simple drone or arpeggio on interval
-    return osc; // Placeholder
-  }
-
-  // Cheerful C Major Arpeggio Loop
   startBGM() {
-    this.initCtx();
-    if (this.bgmNodes.length > 0) return;
-
-    const createNote = (freq: number, startTime: number, duration: number) => {
-        const osc = this.ctx!.createOscillator();
-        const gain = this.ctx!.createGain();
-        osc.type = 'triangle';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.02, startTime);
-        gain.gain.linearRampToValueAtTime(0, startTime + duration);
-        osc.connect(gain);
-        gain.connect(this.masterGain!);
-        osc.start(startTime);
-        osc.stop(startTime + duration);
-        this.bgmNodes.push(osc);
-    };
-
-    // Schedule a simple joyful melody loop
-    const scheduleMelody = () => {
-        if (this.bgmNodes.length === 0) return; // Stopped
-        const now = this.ctx!.currentTime;
-        const melody = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C E G C G E
-        melody.forEach((f, i) => createNote(f, now + i * 0.4, 0.4));
-    };
-
-    // Initial dummy node to mark as playing
-    const dummy = this.ctx!.createOscillator();
-    this.bgmNodes.push(dummy);
-    
-    scheduleMelody();
-    // Re-trigger every 2.4s
-    const interval = window.setInterval(() => {
-        if (this.bgmNodes.length === 0) { clearInterval(interval); return; }
-        scheduleMelody();
-    }, 2400);
-    
-    // Store interval ID in a way we can clear it? 
-    // Since we can't easily store the interval on the class in this strict setup without leaks,
-    // we rely on the bgmNodes length check.
-    (this as any).bgmInterval = interval;
+    if (this.bgmAudio) {
+        this.bgmAudio.play().catch(e => console.warn("Autoplay blocked"));
+    }
   }
 
   stopBGM() {
-    if ((this as any).bgmInterval) clearInterval((this as any).bgmInterval);
-    this.bgmNodes.forEach(n => { try { n.stop(); } catch(e){} });
-    this.bgmNodes = [];
+    if (this.bgmAudio) {
+        this.bgmAudio.pause();
+        this.bgmAudio.currentTime = 0;
+    }
   }
 
-  // Upbeat Arcade Style for Revenge
   startRevengeBGM() {
-    this.initCtx();
-    this.stopRevengeBGM();
-
-    const createFastNote = (freq: number, startTime: number) => {
-        const osc = this.ctx!.createOscillator();
-        const gain = this.ctx!.createGain();
-        osc.type = 'square';
-        osc.frequency.value = freq;
-        // SIGNIFICANTLY REDUCED VOLUME to be less distracting
-        gain.gain.setValueAtTime(0.015, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.005, startTime + 0.1);
-        osc.connect(gain);
-        gain.connect(this.masterGain!);
-        osc.start(startTime);
-        osc.stop(startTime + 0.1);
-        this.revengeNodes.push(osc);
-    };
-
-    const scheduleRevenge = () => {
-        if (this.revengeNodes.length === 0) return;
-        const now = this.ctx!.currentTime;
-        // Fast ascending scale effect
-        const notes = [440, 554, 659, 880, 659, 554]; // A major fast
-        notes.forEach((f, i) => createFastNote(f, now + i * 0.15));
-    };
-
-    // Initial dummy
-    const dummy = this.ctx!.createOscillator();
-    this.revengeNodes.push(dummy);
-
-    scheduleRevenge();
-    const interval = window.setInterval(() => {
-        if (this.revengeNodes.length === 0) { clearInterval(interval); return; }
-        scheduleRevenge();
-    }, 900); // Faster loop
-
-    (this as any).revengeInterval = interval;
+    this.stopBGM();
+    if (this.revengeAudio) {
+        this.revengeAudio.play().catch(e => console.warn("Autoplay blocked"));
+    }
   }
 
   stopRevengeBGM() {
-    if ((this as any).revengeInterval) clearInterval((this as any).revengeInterval);
-    this.revengeNodes.forEach(n => { try { n.stop(); } catch(e){} });
-    this.revengeNodes = [];
+    if (this.revengeAudio) {
+        this.revengeAudio.pause();
+        this.revengeAudio.currentTime = 0;
+    }
   }
 }
 
