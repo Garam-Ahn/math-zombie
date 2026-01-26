@@ -81,6 +81,8 @@ export default function App() {
   const [showDamageOverlay, setShowDamageOverlay] = useState(false);
   const [bossMessage, setBossMessage] = useState<string | null>(null);
 
+  const [isShaking, setIsShaking] = useState(false);
+
   const [freezeCharge, setFreezeCharge] = useState(0); 
   const [isFrozen, setIsFrozen] = useState(false); 
 
@@ -156,6 +158,11 @@ export default function App() {
         setIsFrozen(false);
         setFeedbackMsg("");
     }, 5000);
+  };
+
+  const triggerShake = () => {
+    setIsShaking(true);
+    setTimeout(() => setIsShaking(false), 150);
   };
 
   const spawnCoin = (x: number, y: number) => {
@@ -451,6 +458,7 @@ export default function App() {
           if (plant.type === PlantType.CHERRYBOMB) {
             if (timestamp - plant.lastActionTime > 1500) {
               const radius = 1.5; 
+              let hitAny = false;
               currentZombies.forEach(z => {
                 if (z.isDying) return;
                 const zCol = (z.x / 100) * COLS;
@@ -459,9 +467,10 @@ export default function App() {
                 if (effectiveRowDist <= 1 && Math.abs(zCol - plant.col) <= radius) {
                   z.hp -= (config.damage || 500);
                   z.lastHitTime = timestamp;
+                  hitAny = true;
                 }
               });
-              audio.playHit();
+              if (hitAny) { triggerShake(); audio.playHit(); }
               plantsToRemove.push(plant.id);
             }
           }
@@ -470,7 +479,7 @@ export default function App() {
         currentZombies.sort((a, b) => a.x - b.x);
         const movedProjectiles = state.projectiles.map(p => ({
             ...p,
-            x: p.x + 0.7 
+            x: p.x + 1.2 // Increased projectile speed slightly for better feel
         }));
 
         const allToCheck = [...movedProjectiles, ...newProjectiles];
@@ -486,6 +495,7 @@ export default function App() {
 
              if (hitTarget) {
                  hit = true;
+                 triggerShake();
                  audio.playHit();
                  currentZombies.forEach(z => {
                     if (z.isDying) return;
@@ -497,7 +507,7 @@ export default function App() {
                     }
                     if (shouldHit) {
                         const isBoss = z.type === 'BOSS';
-                        const knockback = isBoss ? 0 : 3;
+                        const knockback = isBoss ? 0 : 2;
                         const zCol = Math.floor((z.x / 100) * COLS);
                         const nearbySunflower = updatedPlants.find(p => p.type === PlantType.SUNFLOWER && Math.abs(p.row - z.row) <= 1 && Math.abs(p.col - zCol) <= 1);
                         const mult = nearbySunflower ? (1 + nearbySunflower.level * 0.2) : 1;
@@ -547,8 +557,8 @@ export default function App() {
             }
             
             let moveSpeed = state.isFrozen ? 0 : z.speed;
-            const isStunned = (timestamp - (z.lastHitTime || 0)) < 300; 
-            if (isStunned) moveSpeed = -0.05; 
+            const isStunned = (timestamp - (z.lastHitTime || 0)) < 200; 
+            if (isStunned) moveSpeed = -0.08; 
             
             let eating = false;
             if (!isStunned && !state.isFrozen) {
@@ -1113,7 +1123,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-[100dvh] w-screen relative overflow-hidden font-sans bg-stone-900">
+    <div className={`h-[100dvh] w-screen relative overflow-hidden font-sans bg-stone-900 ${isShaking ? 'screenshake' : ''}`}>
       {showDamageOverlay && (
           <div className="absolute inset-0 bg-red-600/40 z-[100] animate-pulse pointer-events-none mix-blend-multiply"></div>
       )}
@@ -1257,22 +1267,21 @@ export default function App() {
             const noAmmo = cfg.maxAmmo && (plant.ammo || 0) <= 0;
 
             return (
-              <div key={plant.id} className="absolute pointer-events-none flex items-center justify-center"
+              <div key={plant.id} className="absolute pointer-events-none flex items-center justify-center gpu-accelerated"
                 style={{ 
                   top: `${(plant.row / ROWS) * 100}%`, 
                   left: `${(plant.col / COLS) * 100}%`, 
                   width: `${100/COLS}%`, 
                   height: `${100/ROWS}%`,
                 }}>
-                <div className="w-full h-full flex items-center justify-center transition-transform relative" style={{ transform: `scale(${scale})` }}>
+                <div className={`w-full h-full flex items-center justify-center transition-transform relative animate-[fadeIn_0.3s_ease-out]`} style={{ transform: `scale(${scale})` }}>
                   {plant.level > 2 && (
                       <div className="absolute inset-0 bg-yellow-400/20 rounded-full blur-md animate-pulse"></div>
                   )}
-                  {/* Aura for JALAPENO when active */}
                   {plant.type === PlantType.JALAPENO && !noAmmo && (
                       <div className="absolute inset-[-20%] bg-red-500/20 rounded-full blur-xl animate-pulse"></div>
                   )}
-                  <div className={`w-[90%] h-[90%] filter drop-shadow-lg 
+                  <div className={`w-[90%] h-[90%] filter drop-shadow-xl 
                       ${isHit ? 'animate-hit' : ''} 
                       ${isShooting && plant.type === PlantType.PEASHOOTER ? 'animate-shoot' : ''}
                       ${noAmmo ? 'grayscale opacity-70' : ''}
@@ -1305,7 +1314,7 @@ export default function App() {
           })}
 
           {zombies.map(zombie => {
-            const isHit = performance.now() - (zombie.lastHitTime || 0) < 300; 
+            const isHit = performance.now() - (zombie.lastHitTime || 0) < 200; 
             const isBoss = zombie.type === 'BOSS';
 
             let scale = 1.1; 
@@ -1319,10 +1328,10 @@ export default function App() {
             }
 
             const heightPercent = isBoss ? (100/ROWS) * 2 : (100/ROWS);
-            const hitFilter = isHit ? 'brightness(2) sepia(1) hue-rotate(-50deg)' : (isFrozen ? 'brightness(0.8) contrast(1.2)' : 'none');
+            const hitFilter = isHit ? 'brightness(3) contrast(1.5)' : (isFrozen ? 'brightness(0.8) contrast(1.2)' : 'none');
             const dyingFilter = zombie.isDying ? 'grayscale(1) brightness(0.5) sepia(1) hue-rotate(-50deg)' : 'none';
-            const eliteFilter = zombie.isElite ? 'drop-shadow(0 0 3px red)' : '';
-            const freezeShadow = isFrozen && !zombie.isDying ? 'drop-shadow(0 0 5px #22d3ee)' : '';
+            const eliteFilter = zombie.isElite ? 'drop-shadow(0 0 10px red)' : '';
+            const freezeShadow = isFrozen && !zombie.isDying ? 'drop-shadow(0 0 15px #22d3ee)' : '';
 
             return (
               <div key={zombie.id} className="absolute flex flex-col items-center justify-center transition-transform duration-100 ease-linear pointer-events-none gpu-accelerated"
@@ -1343,7 +1352,7 @@ export default function App() {
                 )}
                 <div 
                   className={`w-full h-full transform ${zombie.x % 2 > 1 ? 'scale-x-[-1]' : ''} 
-                      ${zombie.isDying ? 'animate-dying' : (isHit ? 'animate-hit' : (zombie.isEating ? 'animate-attack' : (isFrozen ? '' : 'animate-walk')))}
+                      ${zombie.isDying ? 'animate-dying' : (isHit ? 'animate-zombie-hit' : (zombie.isEating ? 'animate-attack' : (isFrozen ? '' : 'animate-walk')))}
                   `} 
                   style={{ 
                       transformOrigin: 'bottom center', 
@@ -1358,21 +1367,22 @@ export default function App() {
           })}
 
           {projectiles.map(proj => {
-            let color = '#eab308'; 
-            if (proj.isBoosted) color = '#ef4444'; // Fire pea
-            else if (proj.level === 2) color = '#3b82f6'; 
-            else if (proj.level >= 3) color = '#ef4444'; 
+            let color = '#a3e635'; // Vibrant green
+            let glowColor = 'rgba(163, 230, 53, 0.6)';
+            if (proj.isBoosted) { color = '#ef4444'; glowColor = 'rgba(239, 68, 68, 0.8)'; }
+            else if (proj.level === 2) { color = '#3b82f6'; glowColor = 'rgba(59, 130, 246, 0.6)'; } 
+            else if (proj.level >= 3) { color = '#facc15'; glowColor = 'rgba(250, 204, 21, 0.6)'; } 
 
             return (
             <div key={proj.id} 
-              className={`absolute rounded-full shadow-lg z-20 gpu-accelerated ${proj.level > 2 ? 'w-6 h-6 md:w-8 md:h-8' : 'w-4 h-4 md:w-6 md:h-6'}`}
+              className={`absolute rounded-full z-20 gpu-accelerated ${proj.level > 2 ? 'w-6 h-6 md:w-8 md:h-8' : 'w-4 h-4 md:w-6 md:h-6'}`}
               style={{ 
                 top: `${(proj.row / ROWS) * 100 + 10}%`, 
                 left: `${proj.x}%`, 
                 transform: 'translate(-50%, -50%) translateZ(0)',
                 backgroundColor: color,
                 border: '2px solid white',
-                boxShadow: proj.isBoosted ? '0 0 15px #ef4444' : 'none'
+                boxShadow: `0 0 15px ${glowColor}, 0 0 5px white inset`
               }} 
             />
           );})}
@@ -1383,7 +1393,8 @@ export default function App() {
               style={{ left: `${s.x}%`, top: `${s.y}%` }}>
               <svg width="60" height="60" viewBox="0 0 100 100" className="animate-[spin_10s_linear_infinite]">
                   <circle cx="50" cy="50" r="30" fill="#eab308" stroke="#ca8a04" strokeWidth="2" />
-                  <path d="M50 10 L50 0 M50 90 L50 100 M10 50 L0 50 M90 50 L100 50 M22 22 L15 15 M78 78 L85 85 M22 78 L15 85 M78 22 L85 15" stroke="#eab308" strokeWidth="4" strokeLinecap="round" />
+                  <circle cx="50" cy="50" r="20" fill="white" opacity="0.3" />
+                  <path d="M50 10 L50 0 M50 90 L50 100 M10 50 L0 50 M90 50 L100 50 M22 22 L15 15 M78 78 L85 85 M22 78 L15 85 M78 22 L85 15" stroke="#eab308" strokeWidth="6" strokeLinecap="round" />
               </svg>
             </button>
           ))}

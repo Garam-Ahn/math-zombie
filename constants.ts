@@ -44,11 +44,11 @@ export const PLANT_CONFIGS: Record<PlantType, PlantConfig> = {
   [PlantType.PEASHOOTER]: {
     type: PlantType.PEASHOOTER,
     name: "Pea Shooter",
-    description: "강력한 콩을 발사합니다. (스플래시 데미지)",
+    description: "강력한 콩을 발사합니다. (연사 속도 상향!)",
     cost: 50,
     hp: 100,
     damage: 60,
-    cooldown: 4500,
+    cooldown: 2200, // Reduced from 4500
     svg: SVG_PEASHOOTER,
     color: "bg-green-500",
     maxAmmo: 15
