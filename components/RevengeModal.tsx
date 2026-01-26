@@ -8,6 +8,7 @@ interface RevengeModalProps {
   wrongHistory: MathHistoryItem[];
   availableTables: number[];
   onComplete: () => void;
+  onOpenStudy: () => void; // Added prop
 }
 
 const generateRandomProblem = (tables: number[]): MathProblem => {
@@ -16,7 +17,7 @@ const generateRandomProblem = (tables: number[]): MathProblem => {
   return { factorA: table, factorB: b, answer: table * b };
 };
 
-export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availableTables, onComplete }) => {
+export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availableTables, onComplete, onOpenStudy }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
@@ -28,11 +29,9 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
     };
   }, []);
 
-  // Prepare the consolidated list of revenge problems (all multiple choice)
   const revengeProblems = useMemo(() => {
     const uniqueMap = new Map<string, MathProblem>();
     
-    // 1. Add unique wrong problems first
     wrongHistory.filter(h => !h.isCorrect).forEach(h => {
       const key = `${h.factorA}x${h.factorB}`;
       if (!uniqueMap.has(key)) {
@@ -42,44 +41,52 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
 
     const problems: MathProblem[] = Array.from(uniqueMap.values());
     
-    // 2. Fill the rest with random problems up to the count
     while (problems.length < REVENGE_PROBLEM_COUNT) {
-      problems.push(generateRandomProblem(availableTables));
+      const randProb = generateRandomProblem(availableTables);
+      const key = `${randProb.factorA}x${randProb.factorB}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, randProb);
+        problems.push(randProb);
+      }
     }
     
-    // Shuffle and slice to keep it focused
     return problems.sort(() => Math.random() - 0.5).slice(0, REVENGE_PROBLEM_COUNT);
   }, [wrongHistory, availableTables]);
 
   const currentProblem = revengeProblems[currentIndex];
   
-  // Generate 4 options (1 correct + 3 distractors)
   const currentOptions = useMemo(() => {
     if (!currentProblem) return [];
     
     const ans = currentProblem.answer;
     const distractors = new Set<number>();
     
-    // Generate logical distractors
     const candidates = [
         ans + currentProblem.factorA, 
         ans - currentProblem.factorA, 
+        ans + 1,
+        ans - 1,
+        (currentProblem.factorA + 1) * currentProblem.factorB,
+        (currentProblem.factorA - 1) * currentProblem.factorB,
         ans + 10, 
-        ans - 10, 
-        ans + 5,
-        Math.max(1, ans - 5)
+        ans - 10,
     ];
 
     candidates.forEach(c => {
         if (c > 0 && c !== ans) distractors.add(c);
     });
 
+    while(distractors.size < 3) {
+        const rand = Math.floor(Math.random() * 81) + 1;
+        if(rand !== ans) distractors.add(rand);
+    }
+
     const finalDistractors = Array.from(distractors).sort(() => Math.random() - 0.5).slice(0, 3);
     return [ans, ...finalDistractors].sort(() => Math.random() - 0.5);
   }, [currentProblem]);
 
   const handleChoice = (chosenAnswer: number) => {
-    if (!currentProblem) return;
+    if (!currentProblem || feedback) return;
     
     if (chosenAnswer === currentProblem.answer) {
       audio.playCorrect();
@@ -92,7 +99,7 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
           audio.stopRevengeBGM();
           onComplete();
         }
-      }, 600);
+      }, 800);
     } else {
       audio.playWrong();
       setShake(true);
@@ -106,35 +113,37 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-      {/* VIBRANT Colorful Box */}
       <div className={`
           relative w-full max-w-4xl p-6 md:p-10 rounded-3xl 
           bg-gradient-to-b from-purple-800 via-indigo-950 to-black
           border-[8px] border-yellow-400 shadow-[0_0_80px_rgba(168,85,247,0.7)] 
-          flex flex-col
-          ${shake ? 'animate-pulse' : ''}
+          flex flex-col transition-transform duration-200
+          ${shake ? 'animate-pulse scale-95' : 'scale-100'}
       `}>
         
-        {/* Header */}
         <div className="flex justify-between items-center mb-6 pb-4 border-b-2 border-yellow-400/30">
             <h2 className="text-3xl md:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-white to-yellow-300 font-black drop-shadow-[0_2px_0_#000] tracking-tighter uppercase italic">
                 ⚡ REVENGE LIGHTNING ⚡
             </h2>
-            <div className="bg-yellow-400 text-black px-6 py-1 rounded-full font-black text-xl shadow-lg border-2 border-white">
-                {currentIndex + 1} / {revengeProblems.length}
+            <div className="flex items-center gap-4">
+                <button 
+                  onClick={onOpenStudy}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-full border-2 border-purple-400 shadow-[0_0_15px_purple] font-black text-sm md:text-base animate-pulse flex items-center gap-2"
+                >
+                  <span>📖</span> 연습하러 가기
+                </button>
+                <div className="bg-yellow-400 text-black px-6 py-1 rounded-full font-black text-xl shadow-lg border-2 border-white">
+                    {currentIndex + 1} / {revengeProblems.length}
+                </div>
             </div>
         </div>
 
         <div className="flex flex-col landscape:flex-row gap-8 items-stretch flex-1 min-h-[300px]">
-            
-            {/* Left: Problem Display */}
             <div className="flex-1 bg-white/95 rounded-2xl border-4 border-indigo-500 shadow-2xl flex flex-col items-center justify-center p-8 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-white opacity-50"></div>
-                
                 <p className="text-indigo-800 mb-8 font-black text-xl md:text-2xl uppercase tracking-widest relative z-10">
                     CHALLENGE!
                 </p>
-                
                 <div className="text-7xl md:text-9xl text-indigo-950 font-black flex flex-nowrap items-center justify-center gap-4 relative z-10">
                     <span className={getNumberColorClass(currentProblem.factorA)}>{currentProblem.factorA}</span>
                     <span className="text-indigo-300">×</span>
@@ -144,11 +153,10 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
                 </div>
             </div>
 
-            {/* Right: Objective Choices */}
             <div className="flex-1 grid grid-cols-2 gap-4">
                 {currentOptions.map((opt, idx) => (
                     <button 
-                        key={idx}
+                        key={`${currentIndex}-${idx}`}
                         onClick={() => handleChoice(opt)}
                         className="
                           relative overflow-hidden
@@ -171,7 +179,7 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[60]">
                  <div className={`
                     px-12 py-8 rounded-3xl text-5xl font-black animate-bounce shadow-2xl border-8
-                    ${feedback.includes('정답') ? 'bg-green-500 text-white border-white' : 'bg-red-500 text-white border-white'}
+                    ${feedback.includes('정답') ? 'bg-green-500 text-white border-white scale-110' : 'bg-red-500 text-white border-white'}
                  `}>
                     {feedback}
                  </div>

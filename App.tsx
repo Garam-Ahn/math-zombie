@@ -25,24 +25,22 @@ import {
   PEASHOOTER_LIMIT
 } from './constants';
 import { generateMathEncouragement } from './services/geminiService';
-import { firebaseService } from './services/firebaseService'; // SKELETON INTEGRATION
+import { firebaseService } from './services/firebaseService';
 import { MathModal } from './components/MathModal';
 import { UpgradeModal } from './components/UpgradeModal';
 import { RevengeModal } from './components/RevengeModal';
 import { ReportModal } from './components/ReportModal';
-import { StudyMode } from './components/StudyMode'; // New Import
+import { StudyMode } from './components/StudyMode';
 import { PieGauge } from './components/PieGauge';
 import { audio } from './services/audioService';
 import { SVG_PEASHOOTER, SVG_ZOMBIE_NORMAL, SVG_COIN, SVG_LOCK } from './assets';
 
-// Robust UUID to prevent key collisions
 const uuid = () => performance.now().toString(36) + Math.random().toString(36).substring(2);
 
 export default function App() {
   const [status, setStatus] = useState<GameStatus>(GameStatus.TITLE);
   const [selectedTables, setSelectedTables] = useState<number[]>([]); 
   
-  // Parental Controls
   const [lockedTables, setLockedTables] = useState<number[]>(() => {
     try {
         const saved = localStorage.getItem('mvz_locked_tables');
@@ -51,12 +49,10 @@ export default function App() {
   });
   const [isParentMode, setIsParentMode] = useState(false);
   
-  // PIN Logic
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const PARENT_PIN = "0215";
 
-  // In-Game Study Mode
   const [showStudyModal, setShowStudyModal] = useState(false);
 
   const [isMuted, setIsMuted] = useState(audio.getMuteStatus());
@@ -72,17 +68,14 @@ export default function App() {
   const [wave, setWave] = useState(1);
   const [score, setScore] = useState(0);
 
-  // Coins Data
-  const [totalCoins, setTotalCoins] = useState(0); // Loaded from save
-  const [sessionCoins, setSessionCoins] = useState(0); // Earned this round
+  const [totalCoins, setTotalCoins] = useState(0); 
+  const [sessionCoins, setSessionCoins] = useState(0); 
 
-  // --- DATA TRACKING & SKILLS ---
   const [mathHistory, setMathHistory] = useState<MathHistoryItem[]>([]);
   const [wrongCount, setWrongCount] = useState(0); 
   const [showRevenge, setShowRevenge] = useState(false);
   const [showReport, setShowReport] = useState(false);
   
-  // Visual effects
   const [flashLightning, setFlashLightning] = useState(false); 
   const [showRevengeSuccess, setShowRevengeSuccess] = useState(false);
   const [showDamageOverlay, setShowDamageOverlay] = useState(false);
@@ -92,13 +85,11 @@ export default function App() {
   const [isFrozen, setIsFrozen] = useState(false); 
 
   const [selectedPlantType, setSelectedPlantType] = useState<PlantType | null>(null);
-  // New state for tile-based selection
   const [tileSelection, setTileSelection] = useState<{row: number, col: number} | null>(null);
 
   const [tooltip, setTooltip] = useState<{name: string, desc: string} | null>(null);
   const [tooltipTimer, setTooltipTimer] = useState<number | null>(null);
 
-  // Active Reloading Problem
   const [activeReloadPlantId, setActiveReloadPlantId] = useState<string | null>(null);
 
   const [activeMathProblem, setActiveMathProblem] = useState<{
@@ -137,7 +128,6 @@ export default function App() {
     stateRef.current.status = status;
     stateRef.current.wave = wave;
     stateRef.current.isFrozen = isFrozen;
-    // PAUSE GAME logic
     stateRef.current.isPaused = !!activeMathProblem || !!activePlantInteraction || isPaused || showReport || showPinModal || showStudyModal || !!activeReloadPlantId;
     stateRef.current.showRevenge = showRevenge;
   }, [lives, plants, zombies, projectiles, floatingSuns, status, wave, isFrozen, activeMathProblem, activePlantInteraction, isPaused, showRevenge, showReport, tileSelection, showPinModal, showStudyModal, activeReloadPlantId]);
@@ -151,12 +141,10 @@ export default function App() {
     return () => audio.stopBGM();
   }, [status, isPaused, showRevenge, showReport, tileSelection, showPinModal, showStudyModal, activeMathProblem, activePlantInteraction, activeReloadPlantId]);
 
-  // --- AUTO FREEZE TRIGGER ---
   useEffect(() => {
     if (freezeCharge >= 100 && !isFrozen && !showRevenge && status === GameStatus.PLAYING) {
         triggerFreezeSkill();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freezeCharge, isFrozen, showRevenge, status]);
 
   const triggerFreezeSkill = () => {
@@ -217,52 +205,41 @@ export default function App() {
     }
   };
 
-  // Triggered AFTER Revenge Modal is completed successfully
   const handleRevengeComplete = () => {
     setShowRevenge(false);
     setShowRevengeSuccess(true);
-    
-    // Fix: Show flash only briefly to avoid white screen lock
     setFlashLightning(true);
     setTimeout(() => setFlashLightning(false), 500);
-
     setWrongCount(0); 
     firebaseService.addScore(100);
     audio.playRevengeSuccess(); 
-    
-    // Bonus coins
     setSessionCoins(p => p + 100);
     setTotalCoins(p => p + 100);
 
-    // Instead of just clearing zombies, we reduce their HP then SPAWN THE BOSS
     setZombies(prev => prev.map(z => {
         if (z.isDying) return z;
-        return { ...z, hp: 0 }; // Kill all existing weak zombies to make room for boss
+        return { ...z, hp: 0 }; 
     }));
 
     setTimeout(() => {
         setShowRevengeSuccess(false);
-        // SPAWN ZOMBOSS EVENT
         spawnZombossAndHorde();
     }, 3000);
   };
 
   const spawnZombossAndHorde = () => {
-      setBossMessage("WARNING: ZOMBOSS APPROACHING!");
+      setBossMessage("경고: 좀보스가 나타났습니다!");
       audio.playBossWarning();
       
       setTimeout(() => {
           setBossMessage(null);
-          
-          // Spawn Zomboss in middle row
-          // FIX: Spawn Zomboss closer (95) so he leads the charge
           const zomboss: ZombieEntity = {
               id: uuid(),
               row: 2, 
               x: 95, 
               hp: 1000, 
               maxHp: 1000,
-              speed: 0.02, // Slow
+              speed: 0.02, 
               damage: 100,
               attackSpeed: 2000,
               isEating: false,
@@ -272,13 +249,10 @@ export default function App() {
               lastAttackTime: 0
           };
 
-          // Spawn Horde (4 other random zombies)
-          // FIX: Spawn them further back (110+) so they are behind Zomboss
           const horde: ZombieEntity[] = [];
           for(let i=0; i<5; i++) {
               const row = i % ROWS; 
               const z = createZombie(wave + 5, row);
-              // Stagger them behind Zomboss
               z.x = 110 + (i * 5) + Math.random() * 5;
               horde.push(z);
           }
@@ -295,9 +269,7 @@ export default function App() {
     
     let variant = possibleVariants[Math.floor(Math.random() * possibleVariants.length)];
     const row = forceRow ?? Math.floor(Math.random() * ROWS);
-    
-    // ELITE WAVE LOGIC: Scale stats instead of quantity
-    const isElite = Math.random() < 0.2 + (currentWave * 0.05); // Chance increases with wave
+    const isElite = Math.random() < 0.2 + (currentWave * 0.05); 
     const difficultyMult = 1 + (currentWave * 0.15); 
     
     const finalHp = variant.hp * difficultyMult * (isElite ? 2 : 1);
@@ -338,23 +310,20 @@ export default function App() {
     audio.playCollect(); 
   }, []);
 
-  // --- RELOAD LOGIC ---
   const handleReloadResult = (success: boolean) => {
       if (!activeReloadPlantId) return;
       if (success) {
           setPlants(prev => prev.map(p => {
               if (p.id === activeReloadPlantId) {
-                  return { ...p, ammo: PLANT_CONFIGS[p.type].maxAmmo, lastActionTime: 0 }; // Full reload + instant ready
+                  return { ...p, ammo: PLANT_CONFIGS[p.type].maxAmmo, lastActionTime: 0 }; 
               }
               return p;
           }));
           audio.playUpgradeSuccess();
-          setFeedbackMsg("RELOADED!");
+          setFeedbackMsg("장전 완료!");
           setTimeout(() => setFeedbackMsg(""), 1000);
       }
       setActiveReloadPlantId(null);
-      // Close math modal by clearing activeMathProblem is handled by the Modal onClose binding if we reuse logic, 
-      // but here we are using a separate flow.
       setActiveMathProblem(null);
   };
 
@@ -380,24 +349,21 @@ export default function App() {
         }
         state.sunSpawnTimer += delta;
 
-        // Wave Progress
         if (state.waveTimer > 30000) { 
            setWave(prev => prev + 1);
-           setFeedbackMsg(`WAVE ${state.wave + 1}`);
+           setFeedbackMsg(`웨이브 ${state.wave + 1}`);
            setTimeout(() => setFeedbackMsg(""), 3000);
            state.waveTimer = 0;
         }
 
-        // OPTIMIZATION: Create mutable copies ONCE
         let currentZombies = state.zombies.map(z => ({...z}));
         let updatedPlants = state.plants.map(p => ({...p}));
-        const newProjectiles: ProjectileEntity[] = []; // Rebuild projectile list
+        const newProjectiles: ProjectileEntity[] = []; 
         const plantsToRemove: string[] = [];
 
         const spawnRate = Math.max(1500, 10000 - (state.wave * 800)); 
         
         if (!state.isFrozen && state.zombieSpawnTimer > spawnRate) {
-          // ZOMBIE CAP CHECK: Don't spawn if too many
           if (currentZombies.length < MAX_ZOMBIES_ON_SCREEN) {
              currentZombies.push(createZombie(state.wave));
              state.zombieSpawnTimer = 0;
@@ -414,15 +380,12 @@ export default function App() {
             sunsToAutoCollect.forEach(s => collectSun(s.id, s.value));
         }
 
-        // Cleanup visual coins after 1.5s
         setVisualCoins(prev => prev.filter(c => timestamp - c.createdAt < 1500));
 
-        // Plants Action
         updatedPlants.forEach(plant => {
           const config = PLANT_CONFIGS[plant.type];
           
           if (plant.type === PlantType.PEASHOOTER) {
-            // Check Ammo
             if ((plant.ammo || 0) <= 0) return;
 
             const zombieInLane = currentZombies.some(z => {
@@ -433,17 +396,41 @@ export default function App() {
             });
 
             if (zombieInLane && timestamp - plant.lastActionTime > config.cooldown) {
-              const finalDamage = (config.damage || 60) * (1 + (plant.level - 1) * 0.5);
+              // Check for JALAPENO Boosters nearby (Up, Down, Left, Right)
+              let boostMultiplier = 1;
+              let isBoosted = false;
+              
+              const boosters = updatedPlants.filter(p => 
+                  p.type === PlantType.JALAPENO && 
+                  (p.ammo || 0) > 0 &&
+                  (
+                    (p.row === plant.row && Math.abs(p.col - plant.col) === 1) ||
+                    (p.col === plant.col && Math.abs(p.row - plant.row) === 1)
+                  )
+              );
+
+              if (boosters.length > 0) {
+                  isBoosted = true;
+                  // Use first available booster
+                  const b = boosters[0];
+                  boostMultiplier = 2 + (b.level * 0.5); // Level increases boost effect
+                  b.ammo = (b.ammo || 0) - 1; // Consume Jalapeno charge
+              }
+
+              const finalDamage = (config.damage || 60) * (1 + (plant.level - 1) * 0.5) * boostMultiplier;
+              
               newProjectiles.push({
                 id: uuid(),
                 row: plant.row,
                 x: (plant.col / COLS) * 100 + 5,
                 damage: finalDamage,
-                level: plant.level
+                level: plant.level,
+                isBoosted: isBoosted
               });
+              
               audio.playShoot();
               plant.lastActionTime = timestamp;
-              plant.ammo = (plant.ammo || 0) - 1; // Decrease Ammo
+              plant.ammo = (plant.ammo || 0) - 1; 
             }
           }
           
@@ -480,38 +467,26 @@ export default function App() {
           }
         });
 
-        // Projectiles Logic (OPTIMIZED & GHOST FIXED)
-        // 1. Sort zombies ONCE per frame
         currentZombies.sort((a, b) => a.x - b.x);
-
-        // 2. Move existing projectiles (Immutable update)
-        // Creating new objects prevents React reconciliation issues where old 'x' values persist visually
-        // FIX: SLOWED DOWN SPEED FROM 2 to 0.7 TO PREVENT GHOSTING
         const movedProjectiles = state.projectiles.map(p => ({
             ...p,
-            x: p.x + 0.7 // Slower speed for better rendering stability on iPad
+            x: p.x + 0.7 
         }));
 
-        // 3. Combine with new projectiles
         const allToCheck = [...movedProjectiles, ...newProjectiles];
-        
-        // 4. Collision Detection & Filtering
         const nextProjectiles: ProjectileEntity[] = [];
         
         allToCheck.forEach(proj => {
              let hit = false;
-             // Optimization: Scan sorted zombies.
              const hitTarget = currentZombies.find(z => {
                  if (z.isDying) return false;
                  const isRowMatch = (z.row === proj.row) || (z.type === 'BOSS' && z.row + 1 === proj.row);
-                 // Increased hitbox width slightly to accommodate slower speed
                  return isRowMatch && z.x < proj.x && z.x + 5 > proj.x;
              });
 
              if (hitTarget) {
                  hit = true;
                  audio.playHit();
-                 // Apply Splash
                  currentZombies.forEach(z => {
                     if (z.isDying) return;
                     let shouldHit = false;
@@ -533,27 +508,23 @@ export default function App() {
                  });
              }
 
-             // Only keep projectiles that didn't hit and are within screen bounds
              if (!hit && proj.x < 100) {
                  nextProjectiles.push(proj);
              }
         });
 
-
-        // Zombie Logic (Movement & Death)
         let livesLost = 0;
         const activeZombies: ZombieEntity[] = [];
         let bossDefeatedThisTick = false;
 
         currentZombies.forEach(z => {
             if (z.hp <= 0 && !z.isDying) {
-                // DEATH
                 if (z.type === 'BOSS') {
                     bossDefeatedThisTick = true;
                     setFlashLightning(true);
                     setTimeout(() => setFlashLightning(false), 500);
                     audio.playBossDefeat();
-                    setBossMessage("ZOMBOSS DEFEATED!");
+                    setBossMessage("보스 처치!");
                     setTimeout(() => setBossMessage(null), 3000);
                     spawnCoin(z.x, 50);
                     setScore(s => s + 500);
@@ -575,7 +546,6 @@ export default function App() {
                 return;
             }
             
-            // Movement
             let moveSpeed = state.isFrozen ? 0 : z.speed;
             const isStunned = (timestamp - (z.lastHitTime || 0)) < 300; 
             if (isStunned) moveSpeed = -0.05; 
@@ -611,9 +581,8 @@ export default function App() {
             }
         });
 
-        // --- ZOMBOSS DEATH EFFECT ---
         if (bossDefeatedThisTick) {
-            setFeedbackMsg("ZOMBIES WEAKENED!");
+            setFeedbackMsg("좀비들이 약해졌습니다!");
             setTimeout(() => setFeedbackMsg(""), 3000);
             activeZombies.forEach(z => {
                 if (z.type !== 'BOSS' && !z.isDying) {
@@ -635,7 +604,6 @@ export default function App() {
 
         if (lives - livesLost <= 0) setStatus(GameStatus.GAME_OVER);
         
-        // Batch Update
         setPlants(finalPlants);
         setZombies(activeZombies);
         setProjectiles(nextProjectiles);
@@ -649,19 +617,15 @@ export default function App() {
 
   const toggleSound = () => setIsMuted(audio.toggleMute());
   
-  // PAUSE NOW TOGGLES REPORT
   const togglePause = () => {
-      // Toggle Report. The useEffect above handles the "paused" state logic via state.isPaused
       setShowReport(prev => !prev);
   };
 
   const handleParentModeToggle = () => {
       if (isParentMode) {
-          // Exit parent mode immediately without PIN (convenience)
           setIsParentMode(false);
           audio.playCollect();
       } else {
-          // Enter parent mode requires PIN
           setPinInput("");
           setShowPinModal(true);
           audio.playCollect();
@@ -675,8 +639,7 @@ export default function App() {
           audio.playCorrect();
       } else {
           audio.playWrong();
-          setPinInput(""); // Clear input on error
-          // Optional shake effect visual can be added here if needed, simple logic for now
+          setPinInput(""); 
       }
   };
 
@@ -688,7 +651,6 @@ export default function App() {
   };
 
   const toggleTableSelection = (num: number) => {
-    // If Parent Mode is Active: Toggle Lock status
     if (isParentMode) {
         const newLocks = lockedTables.includes(num)
             ? lockedTables.filter(n => n !== num)
@@ -696,22 +658,18 @@ export default function App() {
         setLockedTables(newLocks);
         localStorage.setItem('mvz_locked_tables', JSON.stringify(newLocks));
         
-        // If locking a currently selected table, deselect it
         if (!lockedTables.includes(num) && selectedTables.includes(num)) {
             setSelectedTables(prev => prev.filter(n => n !== num));
         }
-        audio.playCollect(); // Use generic sound for lock toggle
+        audio.playCollect(); 
         return;
     }
 
-    // Normal Mode: Cannot select locked tables
     if (lockedTables.includes(num)) {
-        audio.playWrong(); // Indicate forbidden
-        // Optional: Shake effect or visual feedback handled in render
+        audio.playWrong(); 
         return;
     }
 
-    // Normal Selection
     setSelectedTables(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]);
     audio.playCollect();
   };
@@ -730,7 +688,7 @@ export default function App() {
     audio.stopBGM();
     setPlants([]); setZombies([]); setProjectiles([]); setFloatingSuns([]); setWave(1); setScore(0); setLives(INITIAL_LIVES); setSun(INITIAL_SUN); setSelectedTables([]); setActiveMathProblem(null); setActivePlantInteraction(null); setFeedbackMsg("");
     setStatus(GameStatus.TITLE); setIsPaused(false); setShowRevenge(false);
-    setIsParentMode(false); // Reset parent mode on exit
+    setIsParentMode(false); 
     setShowPinModal(false);
     setShowStudyModal(false);
   };
@@ -740,7 +698,7 @@ export default function App() {
     if (selectedPlantType !== type) {
        setSelectedPlantType(type);
        setTooltip({ name: cfg.name, desc: cfg.description });
-       setTileSelection(null); // Clear tile selection if manually picking plant
+       setTileSelection(null); 
        if (tooltipTimer) clearTimeout(tooltipTimer);
        setTooltipTimer(window.setTimeout(() => setTooltip(null), 4000));
     } else {
@@ -756,12 +714,10 @@ export default function App() {
     audio.playCollect();
   };
 
-  // Called when picking a plant from the tile popup
   const handleTilePlantSelect = (type: PlantType) => {
     if (!tileSelection) return;
     const cfg = PLANT_CONFIGS[type];
     
-    // Check Peashooter Limit
     if (type === PlantType.PEASHOOTER) {
         const peashooterCount = plants.filter(p => p.type === PlantType.PEASHOOTER).length;
         if (peashooterCount >= PEASHOOTER_LIMIT) {
@@ -775,34 +731,31 @@ export default function App() {
 
     if (sun < cfg.cost) {
       audio.playWrong();
-      return; // Do nothing if too expensive
+      return; 
     }
 
-    // Identical logic to normal plant placement
     audio.playCollect();
     const table = selectedTables[Math.floor(Math.random() * selectedTables.length)];
     const b = Math.floor(Math.random() * 9) + 1;
     
-    // NOTE: We do NOT need to set selectedPlantType here. 
-    // We just set the active problem. The modal should appear if there is an active problem.
     setActiveMathProblem({ 
         plantType: type, 
         row: tileSelection.row, 
         col: tileSelection.col, 
         problem: { factorA: table, factorB: b, answer: table * b } 
     });
-    setTileSelection(null); // Close menu
+    setTileSelection(null); 
   };
 
   const handleCellClick = (row: number, col: number) => {
     if (status !== GameStatus.PLAYING || isPaused || showRevenge) return;
     const existingPlant = plants.find(p => p.row === row && p.col === col);
     
-    // 1. Interaction with existing plant
     if (existingPlant) {
-      // CHECK AMMO
-      if (existingPlant.type === PlantType.PEASHOOTER && (existingPlant.ammo || 0) <= 0) {
-          // Trigger Reload Math Event
+      // Reload Logic: PEASHOOTER OR JALAPENO (both use ammo)
+      const needsReload = (existingPlant.type === PlantType.PEASHOOTER || existingPlant.type === PlantType.JALAPENO) && (existingPlant.ammo || 0) <= 0;
+      
+      if (needsReload) {
           const table = selectedTables[Math.floor(Math.random() * selectedTables.length)];
           const b = Math.floor(Math.random() * 9) + 1;
           setActiveReloadPlantId(existingPlant.id);
@@ -818,16 +771,13 @@ export default function App() {
 
       if (!selectedPlantType) { 
         setActivePlantInteraction(existingPlant); 
-        // IMPORTANT: If tile menu was open, close it to avoid conflict
         setTileSelection(null);
         audio.playCollect(); 
       }
       return;
     }
 
-    // 2. Manual Plant Selection Active (Top Bar)
     if (selectedPlantType) {
-        // Check Peashooter Limit
         if (selectedPlantType === PlantType.PEASHOOTER) {
             const peashooterCount = plants.filter(p => p.type === PlantType.PEASHOOTER).length;
             if (peashooterCount >= PEASHOOTER_LIMIT) {
@@ -842,7 +792,7 @@ export default function App() {
 
         const config = PLANT_CONFIGS[selectedPlantType];
         if (sun < config.cost) {
-            setFeedbackMsg("Not enough Sun!");
+            setFeedbackMsg("햇빛이 부족해요!");
             setTimeout(() => setFeedbackMsg(""), 1000);
             return;
         }
@@ -853,13 +803,11 @@ export default function App() {
         return;
     }
 
-    // 3. No plant selected + Empty Tile -> Open Tile Selection Menu
     setTileSelection({ row, col });
     audio.playCollect();
   };
 
   const handleMathResult = async (success: boolean) => {
-    // Check if this is a RELOAD event
     if (activeReloadPlantId) {
         handleReloadResult(success);
         return;
@@ -873,7 +821,7 @@ export default function App() {
       setPlants(prev => [...prev, {
         id: uuid(), type: activeMathProblem.plantType, row: activeMathProblem.row, col: activeMathProblem.col,
         hp: config.hp, maxHp: config.hp, level: 1, lastActionTime: performance.now(), lastHitTime: 0,
-        ammo: config.maxAmmo // Initialize Ammo
+        ammo: config.maxAmmo 
       }]);
       generateMathEncouragement(true, activeMathProblem.problem.factorA).then(msg => {
           setFeedbackMsg(msg);
@@ -883,7 +831,7 @@ export default function App() {
       setSelectedPlantType(null); 
       setTooltip(null);
     } else {
-       setFeedbackMsg("Try Again!");
+       setFeedbackMsg("다시 해보세요!");
        setTimeout(() => setFeedbackMsg(""), 1000);
     }
     setActiveMathProblem(null);
@@ -892,9 +840,8 @@ export default function App() {
   const handleUpgrade = (plantId: string, levelIncrement: number) => {
     setPlants(prev => prev.map(p => {
       if (p.id === plantId) {
-        setFeedbackMsg(`Level Up! +${levelIncrement}`);
+        setFeedbackMsg(`레벨업! +${levelIncrement}`);
         setTimeout(() => setFeedbackMsg(""), 2000);
-        // FIX: Restore HP to max, reload Ammo
         const config = PLANT_CONFIGS[p.type];
         return { 
             ...p, 
@@ -910,7 +857,6 @@ export default function App() {
   };
 
   const handleHeal = (plantId: string) => {
-    // FIX: Restore HP to max, reload Ammo
     setPlants(prev => prev.map(p => {
         if (p.id === plantId) {
             const config = PLANT_CONFIGS[p.type];
@@ -918,7 +864,7 @@ export default function App() {
         }
         return p;
     }));
-    setFeedbackMsg(`Fully Healed & Reloaded!`);
+    setFeedbackMsg(`치료 및 장전 완료!`);
     setTimeout(() => setFeedbackMsg(""), 2000);
     setActivePlantInteraction(null);
   };
@@ -929,7 +875,7 @@ export default function App() {
        const refund = Math.floor(PLANT_CONFIGS[plant.type].cost * 0.5);
        setSun(prev => prev + refund);
        setPlants(prev => prev.filter(p => p.id !== plantId));
-       setFeedbackMsg(`Recycled! +${refund} Sun`);
+       setFeedbackMsg(`삭제 완료! +${refund} 햇빛`);
        setTimeout(() => setFeedbackMsg(""), 2000);
        audio.playCollect();
     }
@@ -938,10 +884,8 @@ export default function App() {
 
   const handleLoadSave = (coins: number, loadedScore: number) => {
       setTotalCoins(coins);
-      setScore(loadedScore); // Might be cumulative score
+      setScore(loadedScore); 
   };
-
-  // --- RENDERERS ---
 
   if (status === GameStatus.TITLE) {
     return (
@@ -951,8 +895,6 @@ export default function App() {
         <div className="absolute bottom-0 left-0 w-full h-1/3 bg-green-400 rounded-t-[40%] scale-125 translate-y-10 -translate-x-20 border-t-8 border-green-500"></div>
 
         <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-4">
-            
-            {/* Title Section */}
             <div className="relative z-30 flex flex-col items-center animate-float mb-8">
                 <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl landscape:text-5xl landscape:md:text-6xl text-yellow-400 text-center font-black drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)] tracking-wider stroke-black leading-tight" style={{ textShadow: '4px 4px 0 #000' }}>
                   MATH<br/>
@@ -962,30 +904,19 @@ export default function App() {
                 <div className="mt-2 md:mt-4 text-2xl md:text-3xl lg:text-5xl landscape:text-2xl text-blue-400 font-black tracking-widest uppercase transform -rotate-2 hover:scale-110 transition-transform cursor-default" style={{ textShadow: '4px 4px 0 #000', WebkitTextStroke: '2px white' }}>
                     For Gio ⚡
                 </div>
-                {/* Improved Label Visibility: Moved out of flow, high z-index, specific placement */}
                 <div className="absolute -bottom-10 right-0 md:-right-12 rotate-[-8deg] bg-red-600 text-white font-bold text-xs sm:text-sm md:text-xl px-4 py-1 rounded-full border-4 border-white shadow-xl transform hover:scale-110 transition-transform z-40 whitespace-nowrap">
-                  Multiplication Edition!
+                  구구단 에디션!
                 </div>
             </div>
 
-            {/* VS Characters - Giant Side Positioning for Versus Feel */}
-            
-            {/* Left Peashooter */}
             <div className="absolute left-[-10px] bottom-0 md:left-4 md:bottom-10 w-48 h-48 sm:w-56 sm:h-56 md:w-80 md:h-80 lg:w-96 lg:h-96 filter drop-shadow-2xl animate-bounce z-10 pointer-events-none" style={{ animationDuration: '3s' }}>
                  <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: SVG_PEASHOOTER(1) }} />
             </div>
 
-            {/* Right Zombie - Flipped to face Left */}
             <div className="absolute right-[-10px] bottom-0 md:right-4 md:bottom-10 w-48 h-48 sm:w-56 sm:h-56 md:w-80 md:h-80 lg:w-96 lg:h-96 filter drop-shadow-2xl animate-bounce z-10 pointer-events-none" style={{ animationDuration: '3.5s' }}>
-                 {/* Standard zombie SVG faces left, so no transform needed, or scale-x-[-1] if it faces right. Assuming assets usually face right -> left for enemies.
-                     If zombie naturally faces left, we leave it. If it looks right, we flip. 
-                     Based on standard PVZ art, zombies walk Left. So it faces Left.
-                     So no transform needed to make it face the center (Left).
-                 */}
                  <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: SVG_ZOMBIE_NORMAL }} />
             </div>
 
-            {/* Buttons - High Z-index to sit on top of large characters if overlap occurs */}
             <div className="relative z-50 flex gap-4 flex-wrap justify-center mt-8">
                 <button 
                   onClick={() => {
@@ -994,7 +925,7 @@ export default function App() {
                   }}
                   className="glossy-btn bg-green-500 hover:bg-green-400 text-white text-2xl md:text-3xl lg:text-4xl landscape:text-xl py-4 px-12 md:py-6 md:px-16 border-b-8 border-green-700 active:border-b-0 active:translate-y-2 transition-all shadow-2xl animate-pulse font-black rounded-xl"
                 >
-                  PLAY
+                  시작하기
                 </button>
                 <div className="flex gap-2">
                     <button
@@ -1005,14 +936,14 @@ export default function App() {
                         className="bg-purple-500 hover:bg-purple-400 text-white p-3 md:p-4 rounded-xl border-b-8 border-purple-700 active:border-b-0 active:translate-y-2 font-bold flex flex-col items-center justify-center min-w-[80px]"
                     >
                         <span className="text-xl md:text-2xl lg:text-3xl">🌿</span>
-                        <span className="text-xs md:text-sm">Study</span>
+                        <span className="text-xs md:text-sm">연습 모드</span>
                     </button>
                     <button
                         onClick={() => { setShowReport(true); audio.playCollect(); }}
                         className="bg-blue-500 hover:bg-blue-400 text-white p-3 md:p-4 rounded-xl border-b-8 border-blue-700 active:border-b-0 active:translate-y-2 font-bold flex flex-col items-center justify-center min-w-[80px]"
                     >
                         <span className="text-xl md:text-2xl lg:text-3xl">📊</span>
-                        <span className="text-xs md:text-sm">Report</span>
+                        <span className="text-xs md:text-sm">리포트</span>
                     </button>
                 </div>
             </div>
@@ -1034,7 +965,6 @@ export default function App() {
     );
   }
 
-  // --- STUDY MODE ---
   if (status === GameStatus.STUDY) {
     return (
         <StudyMode 
@@ -1048,10 +978,8 @@ export default function App() {
     return (
       <div className="h-[100dvh] bg-stone-800 flex flex-col items-center justify-center p-4 relative font-sans">
         <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-        
-        {/* Top Controls */}
         <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-20">
-            <button onClick={handleGoToTitle} className="text-white text-xl hover:text-yellow-400 font-bold drop-shadow-md bg-black/30 px-4 py-2 rounded-full">← Back</button>
+            <button onClick={handleGoToTitle} className="text-white text-xl hover:text-yellow-400 font-bold drop-shadow-md bg-black/30 px-4 py-2 rounded-full">← 돌아가기</button>
             <button 
                 onClick={handleParentModeToggle}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold border-2 transition-all shadow-lg
@@ -1061,16 +989,16 @@ export default function App() {
                 `}
             >
                 <div className="w-4 h-4" dangerouslySetInnerHTML={{ __html: SVG_LOCK }} />
-                <span className="text-xs uppercase tracking-wider">Parents</span>
+                <span className="text-xs uppercase tracking-wider">부모 모드</span>
             </button>
         </div>
 
         <div className={`wood-panel p-8 max-w-4xl w-full relative z-10 flex flex-col items-center transition-all ${isParentMode ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : ''}`}>
           <h2 className="text-2xl sm:text-3xl md:text-4xl mb-2 text-yellow-100 font-black drop-shadow-md text-center">
-              {isParentMode ? "🔒 TAP TO LOCK/UNLOCK TABLES" : "Select Multiplication Tables"}
+              {isParentMode ? "🔒 잠글 단수를 선택하세요" : "공부할 단수를 선택하세요"}
           </h2>
           {isParentMode && (
-              <p className="text-red-300 font-bold mb-6 text-sm">Grayed out tables cannot be selected by the child.</p>
+              <p className="text-red-300 font-bold mb-6 text-sm">잠긴 단수는 아이가 선택할 수 없습니다.</p>
           )}
 
           <div className="grid grid-cols-4 gap-4 mb-8 w-full mt-4">
@@ -1078,17 +1006,14 @@ export default function App() {
               const isSelected = selectedTables.includes(num);
               const isLocked = lockedTables.includes(num);
               
-              // Visual State Logic
               let btnClass = "";
               if (isParentMode) {
-                  // In Parent Mode: Show Locked vs Unlocked state clearly
                   if (isLocked) {
                       btnClass = "bg-stone-800 text-stone-500 border-stone-900 opacity-80 ring-2 ring-red-500";
                   } else {
-                      btnClass = "bg-green-600 text-white border-green-800 opacity-50"; // Dim unlocked to show they are toggleable
+                      btnClass = "bg-green-600 text-white border-green-800 opacity-50"; 
                   }
               } else {
-                  // Normal Mode
                   if (isLocked) {
                       btnClass = "bg-stone-800 text-stone-600 border-stone-900 cursor-not-allowed grayscale opacity-60";
                   } else if (isSelected) {
@@ -1107,8 +1032,6 @@ export default function App() {
                   `}
                 >
                   <span className={isSelected || (isParentMode && !isLocked) ? "" : "opacity-80"}>{num}</span>
-                  
-                  {/* Lock Overlay */}
                   {isLocked && (
                       <div className="absolute top-1 right-1 w-6 h-6 md:w-8 md:h-8 pointer-events-none drop-shadow-md">
                            <div dangerouslySetInnerHTML={{ __html: SVG_LOCK }} />
@@ -1129,7 +1052,7 @@ export default function App() {
                     : 'bg-stone-500 text-stone-300 border-stone-700 cursor-not-allowed'}
                 `}
               >
-                START DEFENSE
+                디펜스 시작
               </button>
           )}
           {isParentMode && (
@@ -1137,23 +1060,18 @@ export default function App() {
                 onClick={() => setIsParentMode(false)}
                 className="w-full py-6 text-xl md:text-2xl font-black rounded-xl border-b-8 border-red-800 bg-red-600 text-white hover:bg-red-500 active:border-b-0 active:translate-y-2 shadow-xl"
               >
-                  EXIT PARENT MODE
+                  부모 모드 종료
               </button>
           )}
         </div>
 
-        {/* PIN MODAL */}
         {showPinModal && (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
                 <div className="wood-panel p-6 w-full max-w-sm flex flex-col items-center">
-                    <h3 className="text-xl text-yellow-200 font-bold mb-4">Enter Parent PIN</h3>
-                    
-                    {/* Display */}
+                    <h3 className="text-xl text-yellow-200 font-bold mb-4">부모님 PIN 번호 입력</h3>
                     <div className="bg-black/50 w-full p-4 rounded-lg mb-4 text-center text-2xl tracking-[0.5em] font-mono text-white h-16 flex items-center justify-center border-2 border-stone-600 shadow-inner">
                         {pinInput.split('').map(() => '*').join('') || <span className="opacity-30 text-sm tracking-normal">****</span>}
                     </div>
-
-                    {/* Numpad */}
                     <div className="grid grid-cols-3 gap-2 w-full mb-4">
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
                             <button 
@@ -1164,12 +1082,11 @@ export default function App() {
                                 {num}
                             </button>
                         ))}
-                        <button onClick={() => setPinInput("")} className="bg-red-600 text-white text-sm py-3 rounded shadow font-bold border-b-4 border-red-800 active:border-b-0 active:translate-y-1">CLR</button>
+                        <button onClick={() => setPinInput("")} className="bg-red-600 text-white text-sm py-3 rounded shadow font-bold border-b-4 border-red-800 active:border-b-0 active:translate-y-1">삭제</button>
                         <button onClick={() => handlePinInput(0)} className="bg-stone-700 text-white text-xl py-3 rounded shadow font-bold border-b-4 border-stone-900 active:border-b-0 active:translate-y-1">0</button>
-                        <button onClick={handlePinSubmit} className="bg-green-600 text-white text-sm py-3 rounded shadow font-bold border-b-4 border-green-800 active:border-b-0 active:translate-y-1">OK</button>
+                        <button onClick={handlePinSubmit} className="bg-green-600 text-white text-sm py-3 rounded shadow font-bold border-b-4 border-green-800 active:border-b-0 active:translate-y-1">확인</button>
                     </div>
-                    
-                    <button onClick={() => setShowPinModal(false)} className="text-stone-400 text-sm hover:text-white mt-2">Cancel</button>
+                    <button onClick={() => setShowPinModal(false)} className="text-stone-400 text-sm hover:text-white mt-2">취소</button>
                 </div>
             </div>
         )}
@@ -1182,42 +1099,35 @@ export default function App() {
       <div className="min-h-screen bg-black/90 flex flex-col items-center justify-center text-center p-4 z-50 fixed inset-0">
         <h1 className="text-6xl sm:text-8xl text-red-500 mb-8 font-black drop-shadow-[0_5px_0_#fff]" style={{ textShadow: '4px 4px 0 #000' }}>GAME OVER</h1>
         <div className="wood-panel p-8 mb-8">
-            <p className="text-2xl sm:text-4xl text-yellow-100 font-bold">Score: {score}</p>
-            <p className="text-xl text-yellow-200 mt-2">Coins Earned: {sessionCoins}</p>
+            <p className="text-2xl sm:text-4xl text-yellow-100 font-bold">점수: {score}</p>
+            <p className="text-xl text-yellow-200 mt-2">획득 코인: {sessionCoins}</p>
         </div>
         <button 
           onClick={handleGoToTitle}
           className="glossy-btn bg-green-500 text-white text-xl px-12 py-6 font-bold"
         >
-          Return to Title
+          타이틀로 이동
         </button>
       </div>
     );
   }
 
-  // MAIN GAME RENDER
   return (
     <div className="h-[100dvh] w-screen relative overflow-hidden font-sans bg-stone-900">
-      
-      {/* Damage Overlay */}
       {showDamageOverlay && (
           <div className="absolute inset-0 bg-red-600/40 z-[100] animate-pulse pointer-events-none mix-blend-multiply"></div>
       )}
 
-      {/* --- GAME WORLD LAYER (Can be Grayed Out) --- */}
       <div className={`flex flex-col h-full w-full transition-all duration-500 ${isPaused || showRevenge || showReport || showStudyModal || activeReloadPlantId ? 'grayscale brightness-50' : ''}`}>
-        
-        {/* HUD Bar */}
         <div className="h-14 sm:h-20 bg-[#5d4037] flex items-center justify-between px-4 border-b-8 border-[#3e2723] z-20 shadow-xl relative">
           <div className="absolute inset-0 opacity-30 pointer-events-none bg-black/20"></div>
           <div className="flex items-center gap-2 sm:gap-4 z-10">
-            {/* Coins Display */}
             <div className="bg-[#3e2723] rounded-lg px-2 py-1 border border-[#8d6e63] flex flex-col text-[10px] sm:text-xs shadow-inner min-w-[60px] sm:min-w-[80px]">
                 <div className="text-yellow-400 font-bold flex justify-between">
-                    <span>Now:</span><span>${sessionCoins}</span>
+                    <span>현재:</span><span>${sessionCoins}</span>
                 </div>
                 <div className="text-stone-400 font-bold flex justify-between border-t border-stone-600">
-                    <span>Total:</span><span>${totalCoins}</span>
+                    <span>전체:</span><span>${totalCoins}</span>
                 </div>
             </div>
 
@@ -1226,7 +1136,6 @@ export default function App() {
               <span className="text-white text-base sm:text-xl font-bold">{Math.floor(sun)}</span>
             </div>
             
-            {/* Health Bar Gauge */}
             <div className="bg-[#3e2723] rounded-lg px-2 py-1 border-2 border-[#8d6e63] flex gap-1 shadow-inner h-8 sm:h-10 items-center">
                {[...Array(INITIAL_LIVES)].map((_, i) => (
                    <div key={i} className={`w-4 h-4 sm:w-6 sm:h-6 rounded-sm border transition-all duration-300 
@@ -1239,13 +1148,9 @@ export default function App() {
               <button onClick={toggleSound} className="bg-[#8d6e63] w-8 h-8 sm:w-10 sm:h-10 rounded-full border-b-4 border-[#3e2723] flex items-center justify-center text-lg sm:text-xl hover:bg-[#a1887f] active:border-b-0 active:translate-y-1">
                   {isMuted ? "🔇" : "🔊"}
               </button>
-              
-              {/* STUDY BUTTON */}
               <button onClick={() => { setShowStudyModal(true); audio.playCollect(); }} className="bg-purple-600 w-8 h-8 sm:w-10 sm:h-10 rounded-full border-b-4 border-purple-800 flex items-center justify-center text-white font-bold hover:bg-purple-500 active:border-b-0 active:translate-y-1">
                   📖
               </button>
-
-              {/* PAUSE BUTTON NOW OPENS REPORT DIRECTLY */}
               <button onClick={togglePause} className="bg-blue-600 w-8 h-8 sm:w-10 sm:h-10 rounded-full border-b-4 border-blue-800 flex items-center justify-center text-white font-bold hover:bg-blue-500 active:border-b-0 active:translate-y-1">
                   {showReport ? "▶" : "||"}
               </button>
@@ -1255,7 +1160,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Plant Selector */}
           <div className="flex gap-1 sm:gap-2 z-10">
             {Object.values(PLANT_CONFIGS).map((config, idx) => (
               <button key={config.type} onClick={() => handlePlantSelect(config.type)} 
@@ -1263,10 +1167,8 @@ export default function App() {
                   ${selectedPlantType === config.type ? 'border-yellow-400 bg-[#8d6e63] scale-110' : 'border-[#3e2723] bg-[#5d4037]'}
                   ${sun < config.cost ? 'opacity-50 grayscale' : 'hover:bg-[#6d4c41]'}
                 `}>
-                
                 <div className={`w-8 h-8 sm:w-10 sm:h-10 mb-1 pointer-events-none filter drop-shadow-md`} dangerouslySetInnerHTML={{ __html: config.svg(1) }} />
                 <span className={`text-[10px] sm:text-xs font-bold ${sun < config.cost ? 'text-red-300' : 'text-white'}`}>{config.cost}</span>
-                
                 {tooltip && selectedPlantType === config.type && (
                   <div className="absolute top-[110%] left-1/2 -translate-x-1/2 z-50 bg-[#fffbeb] border-2 border-[#78350f] p-3 rounded-xl shadow-xl text-center pointer-events-none min-w-[160px]">
                     <h3 className="text-[#78350f] font-black text-sm mb-1">{tooltip.name}</h3>
@@ -1279,7 +1181,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* LAWN AREA */}
         <div className="flex-1 relative overflow-hidden touch-none lawn-bg">
           <div className="absolute inset-0 flex flex-col pt-2 sm:pt-4 pb-2 px-4">
             {Array.from({ length: ROWS }).map((_, r) => (
@@ -1287,7 +1188,7 @@ export default function App() {
                 {Array.from({ length: COLS }).map((_, c) => {
                   const nearbySunflower = plants.find(p => p.type === PlantType.SUNFLOWER && Math.abs(p.row - r) <= 1 && Math.abs(p.col - c) <= 1);
                   const isSelectedForPlanting = tileSelection?.row === r && tileSelection?.col === c;
-                  const isTopRows = r < 2; // Check if it's top row to position popup below
+                  const isTopRows = r < 2; 
 
                   return (
                     <div key={c} 
@@ -1296,8 +1197,6 @@ export default function App() {
                           ${isSelectedForPlanting ? 'bg-white/20 border-2 border-white' : ''}
                         `}
                         onClick={() => handleCellClick(r, c)}>
-                          
-                          {/* Tile Selection Popup */}
                           {isSelectedForPlanting && (
                               <div className={`absolute left-1/2 -translate-x-1/2 z-[60] bg-[#5d4037] border-4 border-[#3e2723] rounded-xl p-2 flex gap-2 shadow-2xl animate-float
                                   ${isTopRows ? 'top-[110%]' : 'bottom-[110%]'}
@@ -1320,10 +1219,7 @@ export default function App() {
                                           </button>
                                       );
                                   })}
-                                  {/* Close Button small X */}
                                   <button onClick={(e) => { e.stopPropagation(); setTileSelection(null); }} className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs border-2 border-white shadow-md">X</button>
-                                  
-                                  {/* Triangle pointer */}
                                   <div className={`absolute left-1/2 -translate-x-1/2 w-4 h-4 bg-[#5d4037] border-r-4 border-b-4 border-[#3e2723] transform rotate-45
                                       ${isTopRows ? '-top-2 border-r-0 border-b-0 border-l-4 border-t-4' : '-bottom-2'}
                                   `}></div>
@@ -1342,7 +1238,6 @@ export default function App() {
             </div>
           )}
 
-          {/* BOSS WARNING OVERLAY */}
           {bossMessage && (
               <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
                   <div className="bg-red-600/90 border-y-8 border-red-800 w-full py-8 transform -rotate-3 animate-pulse flex items-center justify-center shadow-2xl">
@@ -1359,8 +1254,6 @@ export default function App() {
             const isShooting = performance.now() - plant.lastActionTime < 200;
             const hpPercent = Math.max(0, (plant.hp / plant.maxHp) * 100);
             const scale = Math.min(1.2, 1 + (plant.level - 1) * 0.05);
-            
-            // Check Ammo Status
             const noAmmo = cfg.maxAmmo && (plant.ammo || 0) <= 0;
 
             return (
@@ -1375,16 +1268,18 @@ export default function App() {
                   {plant.level > 2 && (
                       <div className="absolute inset-0 bg-yellow-400/20 rounded-full blur-md animate-pulse"></div>
                   )}
+                  {/* Aura for JALAPENO when active */}
+                  {plant.type === PlantType.JALAPENO && !noAmmo && (
+                      <div className="absolute inset-[-20%] bg-red-500/20 rounded-full blur-xl animate-pulse"></div>
+                  )}
                   <div className={`w-[90%] h-[90%] filter drop-shadow-lg 
                       ${isHit ? 'animate-hit' : ''} 
                       ${isShooting && plant.type === PlantType.PEASHOOTER ? 'animate-shoot' : ''}
                       ${noAmmo ? 'grayscale opacity-70' : ''}
                   `} dangerouslySetInnerHTML={{ __html: cfg.svg(plant.level) }} />
-                  
-                  {/* RELOAD INDICATOR */}
                   {noAmmo && (
                       <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold animate-bounce shadow-md border border-white whitespace-nowrap z-50">
-                          ⚠️ RELOAD
+                          ⚠️ 장전 필요
                       </div>
                   )}
                 </div>
@@ -1399,7 +1294,6 @@ export default function App() {
                         Lv.{plant.level}
                     </div>
                     )}
-                    {/* Ammo Count */}
                     {cfg.maxAmmo && !noAmmo && (
                         <div className="bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-full border border-blue-700 font-bold z-50 shadow-sm">
                             {plant.ammo}
@@ -1418,8 +1312,6 @@ export default function App() {
             if (zombie.type === 'BUCKET') scale = 1.3;
             if (zombie.type === 'CONE') scale = 1.2;
             if (isBoss) scale = 1.5; 
-            
-            // ELITE SCALING VISUALS
             if (zombie.isElite) scale *= 1.3;
 
             if (!isBoss && !zombie.isElite) {
@@ -1442,7 +1334,7 @@ export default function App() {
                     transform: 'translateX(-50%) translateZ(0)', 
                     marginTop: isBoss ? '0' : '-2%',
                     zIndex: isBoss ? 30 : 10,
-                    filter: `${freezeShadow} ${eliteFilter}` // Apply shadow to container
+                    filter: `${freezeShadow} ${eliteFilter}` 
                 }}>
                 {!zombie.isDying && (
                   <div className="absolute left-1/2 ml-1 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-stone-900 border border-stone-600 rounded-full overflow-hidden z-20 shadow-sm flex flex-col justify-end">
@@ -1466,21 +1358,21 @@ export default function App() {
           })}
 
           {projectiles.map(proj => {
-            // VISIBILITY FIX: Changed default colors to yellow/gold for high contrast against green grass
-            let color1 = '#fef08a'; // yellow-200
-            let color2 = '#eab308'; // yellow-500
-            if (proj.level === 2) { color1 = '#93c5fd'; color2 = '#3b82f6'; } 
-            if (proj.level >= 3) { color1 = '#fca5a5'; color2 = '#ef4444'; } 
+            let color = '#eab308'; 
+            if (proj.isBoosted) color = '#ef4444'; // Fire pea
+            else if (proj.level === 2) color = '#3b82f6'; 
+            else if (proj.level >= 3) color = '#ef4444'; 
 
             return (
             <div key={proj.id} 
-              className={`absolute rounded-full shadow-none z-20 gpu-accelerated ${proj.level > 2 ? 'w-6 h-6 md:w-8 md:h-8' : 'w-4 h-4 md:w-6 md:h-6'}`}
+              className={`absolute rounded-full shadow-lg z-20 gpu-accelerated ${proj.level > 2 ? 'w-6 h-6 md:w-8 md:h-8' : 'w-4 h-4 md:w-6 md:h-6'}`}
               style={{ 
                 top: `${(proj.row / ROWS) * 100 + 10}%`, 
                 left: `${proj.x}%`, 
                 transform: 'translate(-50%, -50%) translateZ(0)',
-                backgroundColor: color2,
-                border: '2px solid white' // Added border for extra visibility
+                backgroundColor: color,
+                border: '2px solid white',
+                boxShadow: proj.isBoosted ? '0 0 15px #ef4444' : 'none'
               }} 
             />
           );})}
@@ -1503,9 +1395,7 @@ export default function App() {
               </div>
           ))}
 
-          {/* --- STATUS GAUGES --- */}
           <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-40 flex items-center gap-2 sm:gap-4 scale-75 sm:scale-100 origin-bottom-right">
-            {/* REVENGE GAUGE */}
             <PieGauge 
                 value={wrongCount * (100/REVENGE_THRESHOLD)} 
                 max={100} 
@@ -1514,8 +1404,6 @@ export default function App() {
                 type="REVENGE" 
                 isActive={showRevenge} 
               />
-            
-            {/* FREEZE GAUGE */}
             <PieGauge 
                 value={freezeCharge} 
                 max={100} 
@@ -1525,22 +1413,15 @@ export default function App() {
                 isActive={isFrozen} 
             />
           </div>
-
         </div>
       </div>
-      {/* --- END OF GAME WORLD LAYER --- */}
-
-      {/* --- UI & MODAL LAYER (Unaffected by Grayscale) --- */}
       
-      {/* Lightning Flash Effect - Z-INDEX ADJUSTED TO NOT BLOCK REVENGE TEXT */}
       {flashLightning && (
           <div className="absolute inset-0 bg-white z-[85] animate-flash pointer-events-none"></div>
       )}
 
-      {/* REVENGE SUCCESS OVERLAY - Z-INDEX 90 (Above flash) */}
       {showRevengeSuccess && (
         <div className="absolute inset-0 z-[90] flex items-center justify-center overflow-hidden pointer-events-none">
-            {/* Rotating sunburst bg */}
             <div className="absolute inset-0 bg-yellow-400/20 animate-[spin_10s_linear_infinite]" 
                  style={{backgroundImage: 'conic-gradient(from 0deg, transparent 0 20deg, #fbbf24 20deg 40deg, transparent 40deg 360deg)'}}>
             </div>
@@ -1554,9 +1435,6 @@ export default function App() {
          <div className="absolute inset-0 pointer-events-none z-30 bg-cyan-500/20 mix-blend-overlay border-8 border-cyan-400/50"></div>
       )}
 
-      {/* PAUSE OVERLAY IS GONE, REPLACED BY REPORT MODAL DIRECTLY */}
-      
-      {/* REPORT MODAL */}
       {showReport && (
         <ReportModal 
             history={mathHistory} 
@@ -1567,9 +1445,8 @@ export default function App() {
         />
       )}
 
-      {/* IN-GAME STUDY MODAL */}
       {showStudyModal && (
-          <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm">
                <StudyMode 
                    onBack={() => setShowStudyModal(false)}
                    onPlay={() => setShowStudyModal(false)}
@@ -1578,7 +1455,6 @@ export default function App() {
           </div>
       )}
 
-      {/* UPDATED CONDITION: Show modal if activeMathProblem exists. Don't check selectedPlantType here because tile-click bypasses it. */}
       {activeMathProblem && !showRevenge && (
         <MathModal 
             plant={PLANT_CONFIGS[activeMathProblem.plantType]} 
@@ -1586,6 +1462,7 @@ export default function App() {
             onSolve={handleMathResult} 
             onAttempt={(ans, correct) => handleMathAttempt(activeMathProblem.problem, ans, correct)}
             onClose={() => { setActiveMathProblem(null); setSelectedPlantType(null); setActiveReloadPlantId(null); }} 
+            onOpenStudy={() => setShowStudyModal(true)}
         />
       )}
       {activePlantInteraction && !showRevenge && (
@@ -1597,6 +1474,7 @@ export default function App() {
             onRemove={handleRemove} 
             onAttempt={handleMathAttempt}
             onClose={() => setActivePlantInteraction(null)} 
+            onOpenStudy={() => setShowStudyModal(true)}
         />
       )}
       {showRevenge && (
@@ -1604,6 +1482,7 @@ export default function App() {
              wrongHistory={mathHistory.filter(h => !h.isCorrect)}
              availableTables={selectedTables}
              onComplete={handleRevengeComplete}
+             onOpenStudy={() => setShowStudyModal(true)}
           />
       )}
     </div>

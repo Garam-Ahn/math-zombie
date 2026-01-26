@@ -1,8 +1,8 @@
 
 export enum GameStatus {
-  TITLE = 'TITLE', // New Title Screen
+  TITLE = 'TITLE',
   MENU = 'MENU',
-  STUDY = 'STUDY', // New Study Mode (Zen Garden)
+  STUDY = 'STUDY',
   LOADING_LEVEL = 'LOADING_LEVEL',
   PLAYING = 'PLAYING',
   GAME_OVER = 'GAME_OVER',
@@ -10,23 +10,24 @@ export enum GameStatus {
 }
 
 export enum PlantType {
-  PEASHOOTER = 'PEASHOOTER', // Basic shooter
-  SUNFLOWER = 'SUNFLOWER',   // Generates sun (points/currency)
-  WALLNUT = 'WALLNUT',       // High health blocker
-  CHERRYBOMB = 'CHERRYBOMB'  // Explodes area
+  PEASHOOTER = 'PEASHOOTER',
+  SUNFLOWER = 'SUNFLOWER',
+  WALLNUT = 'WALLNUT',
+  CHERRYBOMB = 'CHERRYBOMB',
+  JALAPENO = 'JALAPENO' // New Booster Plant
 }
 
 export interface PlantConfig {
   type: PlantType;
   name: string;
-  description: string; // Added description
-  cost: number; // In Sun
+  description: string;
+  cost: number;
   hp: number;
   damage?: number;
-  cooldown: number; // milliseconds
-  svg: (level: number) => string; // CHANGED: SVG is now a function of level
+  cooldown: number;
+  svg: (level: number) => string;
   color: string;
-  maxAmmo?: number; // New: Ammo limit
+  maxAmmo?: number;
 }
 
 export interface PlantEntity {
@@ -36,31 +37,31 @@ export interface PlantEntity {
   col: number;
   hp: number;
   maxHp: number;
-  level: number; // Added level (default 1)
+  level: number;
   lastActionTime: number;
-  lastHitTime?: number; // For hit animation
-  ammo?: number; // New: Current ammo
-  maxAmmo?: number; // New: Max ammo capacity
+  lastHitTime?: number;
+  ammo?: number;
+  maxAmmo?: number;
 }
 
 export interface ZombieEntity {
   id: string;
   row: number;
-  x: number; // Percentage 0-100 across screen
+  x: number;
   hp: number;
   maxHp: number;
   speed: number;
-  damage: number; // Damage per HIT (not per tick)
-  attackSpeed: number; // ms between attacks
+  damage: number;
+  attackSpeed: number;
   isEating: boolean;
   type: 'NORMAL' | 'BUCKET' | 'CONE' | 'BOSS';
   svg: string;
-  lastHitTime?: number; // For hit animation
-  lastAttackTime: number; // For attack interval
-  isFrozen?: boolean; // New status effect
-  isDying?: boolean; // New: For death animation
-  deathTime?: number; // New: When did it start dying
-  isElite?: boolean; // New: Visual marker for scaled up zombies
+  lastHitTime?: number;
+  lastAttackTime: number;
+  isFrozen?: boolean;
+  isDying?: boolean;
+  deathTime?: number;
+  isElite?: boolean;
 }
 
 export interface ProjectileEntity {
@@ -68,7 +69,8 @@ export interface ProjectileEntity {
   row: number;
   x: number;
   damage: number;
-  level: number; // Visual size based on level
+  level: number;
+  isBoosted?: boolean; // New: visual flag for fire peas
 }
 
 export interface MathProblem {
@@ -77,14 +79,13 @@ export interface MathProblem {
   answer: number;
 }
 
-// New Interface for Data Tracking
 export interface MathHistoryItem {
   timestamp: number;
   factorA: number;
   factorB: number;
-  userAnswer: number; // What the user typed
+  userAnswer: number;
   isCorrect: boolean;
-  timeTaken?: number; // Optional: could track speed later
+  timeTaken?: number;
 }
 
 export interface SunEntity {
@@ -92,7 +93,7 @@ export interface SunEntity {
   x: number;
   y: number;
   value: number;
-  createdAt: number; // For auto-collection
+  createdAt: number;
 }
 
 export interface VisualCoin {
@@ -109,14 +110,11 @@ export interface SaveData {
   historySummary: Record<string, { correct: number, attempts: number }>;
 }
 
-// Background Tile Type
 export interface Tile {
   row: number;
   col: number;
-  variant: 0 | 1 | 2; // 0: Grass, 1: Weed, 2: Dirt patch
+  variant: 0 | 1 | 2;
 }
-
-// --- FUTURE FIREBASE INTEGRATION TYPES ---
 
 export interface MathStat {
   factorA: number;
@@ -125,24 +123,24 @@ export interface MathStat {
   correct: number;
   avgTimeMs: number;
   lastAttemptAt: number;
-  status: 'NEW' | 'LEARNING' | 'MASTERED' | 'STRUGGLING'; // For parents to see
+  status: 'NEW' | 'LEARNING' | 'MASTERED' | 'STRUGGLING';
 }
 
 export interface DecorationItem {
   id: string;
   name: string;
   type: 'SKIN_PLANT' | 'SKIN_BG' | 'AURA' | 'ACCESSORY';
-  cost: number; // Currency cost
+  cost: number;
   isOwned: boolean;
   isEquipped: boolean;
-  assetUrl?: string; // Or SVG string
+  assetUrl?: string;
 }
 
 export interface UserProfile {
   uid: string;
   displayName: string;
-  totalScore: number; // Cumulative score -> Currency
-  currency: number; // Spendable points
+  totalScore: number;
+  currency: number;
   inventory: DecorationItem[];
-  mathStats: Record<string, MathStat>; // Key e.g., "2x9"
+  mathStats: Record<string, MathStat>;
 }
