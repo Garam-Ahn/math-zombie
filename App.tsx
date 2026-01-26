@@ -1475,6 +1475,7 @@ export default function App() {
             onAttempt={handleMathAttempt}
             onClose={() => setActivePlantInteraction(null)} 
             onOpenStudy={() => setShowStudyModal(true)}
+            isStudyOpen={showStudyModal}
         />
       )}
       {showRevenge && (
@@ -1483,6 +1484,7 @@ export default function App() {
              availableTables={selectedTables}
              onComplete={handleRevengeComplete}
              onOpenStudy={() => setShowStudyModal(true)}
+             isStudyOpen={showStudyModal}
           />
       )}
     </div>

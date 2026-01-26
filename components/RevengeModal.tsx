@@ -8,7 +8,8 @@ interface RevengeModalProps {
   wrongHistory: MathHistoryItem[];
   availableTables: number[];
   onComplete: () => void;
-  onOpenStudy: () => void; // Added prop
+  onOpenStudy: () => void;
+  isStudyOpen: boolean; // Pause input when studying
 }
 
 const generateRandomProblem = (tables: number[]): MathProblem => {
@@ -17,17 +18,21 @@ const generateRandomProblem = (tables: number[]): MathProblem => {
   return { factorA: table, factorB: b, answer: table * b };
 };
 
-export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availableTables, onComplete, onOpenStudy }) => {
+export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availableTables, onComplete, onOpenStudy, isStudyOpen }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
 
   useEffect(() => {
-    audio.startRevengeBGM();
+    if (!isStudyOpen) {
+        audio.startRevengeBGM();
+    } else {
+        audio.stopRevengeBGM();
+    }
     return () => {
         audio.stopRevengeBGM();
     };
-  }, []);
+  }, [isStudyOpen]);
 
   const revengeProblems = useMemo(() => {
     const uniqueMap = new Map<string, MathProblem>();
@@ -86,7 +91,7 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
   }, [currentProblem]);
 
   const handleChoice = (chosenAnswer: number) => {
-    if (!currentProblem || feedback) return;
+    if (!currentProblem || feedback || isStudyOpen) return;
     
     if (chosenAnswer === currentProblem.answer) {
       audio.playCorrect();
@@ -128,9 +133,9 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
             <div className="flex items-center gap-4">
                 <button 
                   onClick={onOpenStudy}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-full border-2 border-purple-400 shadow-[0_0_15px_purple] font-black text-sm md:text-base animate-pulse flex items-center gap-2"
+                  className={`bg-purple-600 text-white px-4 py-2 rounded-full border-2 border-purple-400 shadow-[0_0_15px_purple] font-black text-sm md:text-base animate-pulse flex items-center gap-2 ${isStudyOpen ? 'ring-4 ring-yellow-400' : ''}`}
                 >
-                  <span>📖</span> 연습하러 가기
+                  <span>📖</span> {isStudyOpen ? "공부중..." : "연습하러 가기"}
                 </button>
                 <div className="bg-yellow-400 text-black px-6 py-1 rounded-full font-black text-xl shadow-lg border-2 border-white">
                     {currentIndex + 1} / {revengeProblems.length}
@@ -138,7 +143,13 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
             </div>
         </div>
 
-        <div className="flex flex-col landscape:flex-row gap-8 items-stretch flex-1 min-h-[300px]">
+        <div className="flex flex-col landscape:flex-row gap-8 items-stretch flex-1 min-h-[300px] relative">
+            {isStudyOpen && (
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-30 flex items-center justify-center rounded-2xl">
+                    <div className="text-white font-black text-3xl animate-bounce">⏸️ 잠시 멈춤 ⏸️</div>
+                </div>
+            )}
+
             <div className="flex-1 bg-white/95 rounded-2xl border-4 border-indigo-500 shadow-2xl flex flex-col items-center justify-center p-8 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-100 to-white opacity-50"></div>
                 <p className="text-indigo-800 mb-8 font-black text-xl md:text-2xl uppercase tracking-widest relative z-10">
@@ -158,13 +169,14 @@ export const RevengeModal: React.FC<RevengeModalProps> = ({ wrongHistory, availa
                     <button 
                         key={`${currentIndex}-${idx}`}
                         onClick={() => handleChoice(opt)}
+                        disabled={isStudyOpen}
                         className="
                           relative overflow-hidden
                           w-full h-full py-6 text-4xl md:text-6xl font-black 
                           bg-gradient-to-b from-yellow-300 to-orange-500 
                           text-white rounded-2xl border-b-[10px] border-orange-800 
                           hover:scale-105 active:border-b-0 active:translate-y-2 
-                          transition-all shadow-xl
+                          transition-all shadow-xl disabled:opacity-50
                         "
                         style={{textShadow: '3px 3px 0 rgba(0,0,0,0.3)'}}
                     >

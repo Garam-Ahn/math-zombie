@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { PlantEntity, MathProblem } from '../types';
+import { PlantEntity, MathProblem, PlantType } from '../types';
 import { audio } from '../services/audioService';
 import { PLANT_CONFIGS, getNumberColorClass } from '../constants';
 
@@ -12,7 +12,8 @@ interface UpgradeModalProps {
   onRemove: (plantId: string) => void;
   onAttempt: (problem: MathProblem, answer: number, isCorrect: boolean) => void;
   onClose: () => void;
-  onOpenStudy: () => void; // Added prop
+  onOpenStudy: () => void;
+  isStudyOpen: boolean; // Added to track if timer should pause
 }
 
 type Mode = 'MENU' | 'UPGRADE_CHALLENGE' | 'HEAL_CHALLENGE';
@@ -20,7 +21,7 @@ type Mode = 'MENU' | 'UPGRADE_CHALLENGE' | 'HEAL_CHALLENGE';
 const CHALLENGE_TIME_MS = 10000;
 const QUESTIONS_COUNT = 3;
 
-export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTables, onUpgrade, onHeal, onRemove, onAttempt, onClose, onOpenStudy }) => {
+export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTables, onUpgrade, onHeal, onRemove, onAttempt, onClose, onOpenStudy, isStudyOpen }) => {
   const config = PLANT_CONFIGS[plant.type];
   const [mode, setMode] = useState<Mode>('MENU');
   
@@ -34,11 +35,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
 
   const [usedProblemKeys, setUsedProblemKeys] = useState<string[]>([]);
 
+  // Calculate stats for display
   const currentDamage = config.damage ? Math.floor(config.damage * (1 + (plant.level - 1) * 0.5)) : 0;
+  const jalBoost = plant.type === PlantType.JALAPENO ? (2 + (plant.level * 0.5)).toFixed(1) : null;
 
   useEffect(() => {
     let timer: number;
-    if ((mode === 'UPGRADE_CHALLENGE' || mode === 'HEAL_CHALLENGE') && problem) {
+    // ONLY run timer if not in Study Mode and in a challenge
+    if ((mode === 'UPGRADE_CHALLENGE' || mode === 'HEAL_CHALLENGE') && problem && !isStudyOpen) {
       timer = window.setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 0) { handleFail(true); return 0; }
@@ -48,11 +52,11 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
       }, 50);
     }
     return () => clearInterval(timer);
-  }, [mode, problem]);
+  }, [mode, problem, isStudyOpen]); // isStudyOpen triggers effect update
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (mode === 'MENU') return;
+        if (mode === 'MENU' || isStudyOpen) return;
         if (e.key >= '0' && e.key <= '9') {
             handleNumberClick(parseInt(e.key));
         } else if (e.key === 'Backspace') {
@@ -64,7 +68,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [input, mode, problem]);
+  }, [input, mode, problem, isStudyOpen]);
 
   const generateProblem = () => {
     let newProb: MathProblem;
@@ -167,13 +171,18 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
               {config.maxAmmo && (
                 <div className="w-full bg-stone-900 h-6 rounded-full border-2 border-stone-600 mb-2 relative overflow-hidden">
                      <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400" style={{ width: `${((plant.ammo || 0) / (config.maxAmmo || 1)) * 100}%` }} />
-                     <span className="absolute inset-0 text-xs md:text-sm text-white flex items-center justify-center drop-shadow-md font-bold">Ammo {plant.ammo}/{config.maxAmmo}</span>
+                     <span className="absolute inset-0 text-xs md:text-sm text-white flex items-center justify-center drop-shadow-md font-bold">Energy {plant.ammo}/{config.maxAmmo}</span>
                 </div>
               )}
               
               {currentDamage > 0 && (
                 <div className="bg-orange-900/50 px-3 py-1 rounded-full border border-orange-500 text-[10px] md:text-xs text-orange-200 mt-2">
                   ⚔️ 데미지: {currentDamage}
+                </div>
+              )}
+              {jalBoost && (
+                <div className="bg-red-900/50 px-3 py-1 rounded-full border border-red-500 text-[10px] md:text-xs text-red-200 mt-2 animate-pulse">
+                  🔥 파워업: x{jalBoost}배
                 </div>
               )}
            </div>
@@ -204,15 +213,22 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ plant, availableTabl
               <div className="flex gap-2">
                 <button 
                   onClick={onOpenStudy}
-                  className="bg-purple-600 text-white px-3 py-1 rounded-full border-2 border-purple-800 shadow-md text-sm font-bold flex items-center gap-1 hover:bg-purple-500 active:scale-95"
+                  className={`bg-purple-600 text-white px-3 py-1 rounded-full border-2 border-purple-800 shadow-md text-sm font-bold flex items-center gap-1 hover:bg-purple-500 active:scale-95 ${isStudyOpen ? 'ring-4 ring-yellow-400' : ''}`}
                 >
-                  <span>📖</span> 공부하기
+                  <span>📖</span> {isStudyOpen ? "공부중..." : "공부하기"}
                 </button>
-                <button onClick={onClose} className="text-white font-bold text-xl hover:text-red-400">X</button>
+                {!isStudyOpen && <button onClick={onClose} className="text-white font-bold text-xl hover:text-red-400">X</button>}
               </div>
           </div>
 
-          <div className="flex flex-col landscape:flex-row landscape:gap-4 md:gap-8">
+          <div className="flex flex-col landscape:flex-row landscape:gap-4 md:gap-8 relative">
+              {/* Timer Pause Overlay */}
+              {isStudyOpen && (
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-20 flex items-center justify-center rounded-xl border-4 border-dashed border-purple-500/50">
+                      <div className="text-white font-black text-2xl animate-pulse">⏰ 시간이 멈췄습니다! ⏰</div>
+                  </div>
+              )}
+
               <div className="landscape:flex-1">
                 <div className="text-center text-[10px] md:text-sm mb-2 text-stone-300">
                     {mode === 'HEAL_CHALLENGE' ? "3문제를 연속으로 맞춰보세요!" : "2문제 이상 맞추면 레벨업!"}
