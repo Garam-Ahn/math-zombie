@@ -555,15 +555,17 @@ export default function App() {
 
             {/* Plants Layer */}
             {plants.map(plant => (
-                <div key={plant.id} className="absolute flex items-center justify-center animate-float pointer-events-none z-20"
+                <div key={plant.id} className="absolute flex items-center justify-center pointer-events-none z-20"
                      style={{ 
                         top: `${(plant.row/ROWS)*100}%`, 
                         left: `${(plant.col/COLS)*100}%`, 
                         width: `${100/COLS}%`, 
                         height: `${100/ROWS}%`
                      }}>
-                    <div className="w-[85%] h-[85%] flex items-center justify-center" dangerouslySetInnerHTML={{ __html: (PLANT_CONFIGS[plant.type].svg || (() => ''))(plant.level || 1) }} />
-                    {plant.level >= 5 && <div className="absolute inset-0 bg-yellow-400/20 animate-pulse rounded-full blur-md" />}
+                    <div className="w-full h-full flex items-center justify-center animate-float">
+                        <div className="w-[85%] h-[85%]" dangerouslySetInnerHTML={{ __html: PLANT_CONFIGS[plant.type].svg(plant.level || 1) }} />
+                    </div>
+                    {plant.level >= 5 && <div className="absolute inset-0 bg-yellow-400/10 animate-pulse rounded-full blur-xl" />}
                     {plant.hp < plant.maxHp && (
                         <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-black rounded-full overflow-hidden border border-white/20">
                             <div className="h-full bg-red-500" style={{ width: `${(plant.hp/plant.maxHp)*100}%` }} />

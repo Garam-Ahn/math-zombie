@@ -1,6 +1,6 @@
 
-// PREMIUM STYLIZED ASSETS
-const SVG_START = (content: string) => `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">${content}</svg>`;
+// PREMIUM STYLIZED ASSETS - Updated for better cross-browser compatibility
+const SVG_START = (content: string) => `<svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
 
 export const SVG_COIN = SVG_START(`
 <circle cx="50" cy="50" r="42" fill="#854d0e" />
@@ -95,16 +95,14 @@ export const SVG_CHERRYBOMB = (level: number) => SVG_START(`
     <circle cx="-10" cy="5" r="3" fill="black" />
     <circle cx="10" cy="5" r="3" fill="black" />
 </g>
-<circle cx="85" cy="8" r="6" fill="#facc15" class="animate-pulse" />
+<circle cx="85" cy="8" r="6" fill="#facc15" />
 <circle cx="85" cy="8" r="3" fill="white" />
 `);
 
 export const SVG_ICESHROOM = (level: number) => SVG_START(`
 <ellipse cx="50" cy="94" rx="28" ry="6" fill="#000" opacity="0.25" />
-<!-- Body -->
 <path d="M30 45 C30 25 70 25 70 45 C70 85 30 85 30 45" fill="#93c5fd" stroke="#1d4ed8" stroke-width="3" />
 <path d="M35 50 Q50 40 65 50" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.4" />
-<!-- Crystal Hat -->
 <g transform="translate(0, -10)">
     <path d="M15 45 Q50 15 85 45" fill="#60a5fa" stroke="#1d4ed8" stroke-width="3" />
     <path d="M15 45 L25 25 L35 45" fill="#3b82f6" stroke="#1d4ed8" stroke-width="2" />
@@ -114,7 +112,6 @@ export const SVG_ICESHROOM = (level: number) => SVG_START(`
     <path d="M50 35 L55 5 L65 35" fill="#93c5fd" opacity="0.6" />
     <path d="M70 40 L80 15 L85 40" fill="#93c5fd" opacity="0.6" />
 </g>
-<!-- Grumpy Face -->
 <g transform="translate(0, 5)">
     <path d="M42 45 L48 48" stroke="#1e3a8a" stroke-width="2" stroke-linecap="round" />
     <path d="M58 45 L52 48" stroke="#1e3a8a" stroke-width="2" stroke-linecap="round" />
@@ -124,34 +121,26 @@ export const SVG_ICESHROOM = (level: number) => SVG_START(`
     <circle cx="57" cy="52" r="1.5" fill="black" />
     <path d="M44 65 Q50 60 56 65" fill="none" stroke="#1e3a8a" stroke-width="2" stroke-linecap="round" />
 </g>
-<!-- Ice particles -->
-<g class="animate-pulse">
+<g>
     <path d="M25 85 L28 88 M75 85 L72 88" stroke="#bfdbfe" stroke-width="3" stroke-linecap="round" />
 </g>
 `);
 
 export const SVG_JALAPENO = (level: number) => SVG_START(`
 <ellipse cx="50" cy="94" rx="20" ry="5" fill="#000" opacity="0.3" />
-<!-- Green Stem -->
 <path d="M50 25 C55 15 65 10 75 5" fill="none" stroke="#166534" stroke-width="5" stroke-linecap="round" />
 <path d="M50 25 C45 18 35 15 25 20" fill="none" stroke="#166534" stroke-width="4" stroke-linecap="round" />
-
-<!-- Red Body (Curved Pepper) -->
 <path d="M50 20 C65 25 70 50 65 80 C60 95 40 95 35 80 C30 50 35 25 50 20 Z" fill="#dc2626" stroke="#450a0a" stroke-width="3" />
 <path d="M45 30 Q55 35 55 50 Q55 70 50 85" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.2" />
-
-<!-- Angry Face -->
 <g transform="translate(0, -5)">
-    <path d="M40 45 L50 50 L60 45" fill="none" stroke="#450a0a" stroke-width="3" stroke-linecap="round" /> <!-- Angry Brows -->
+    <path d="M40 45 L50 50 L60 45" fill="none" stroke="#450a0a" stroke-width="3" stroke-linecap="round" />
     <circle cx="42" cy="55" r="5" fill="white" stroke="#450a0a" stroke-width="1.5" />
     <circle cx="44" cy="57" r="2.5" fill="black" />
     <circle cx="58" cy="55" r="5" fill="white" stroke="#450a0a" stroke-width="1.5" />
     <circle cx="56" cy="57" r="2.5" fill="black" />
     <path d="M45 75 Q50 70 55 75" fill="none" stroke="#450a0a" stroke-width="3" stroke-linecap="round" />
 </g>
-
-<!-- Heat Particles (Level Based) -->
-<g class="animate-pulse">
+<g>
     <circle cx="30" cy="40" r="2" fill="#f59e0b" opacity="0.6" />
     <circle cx="70" cy="60" r="3" fill="#ef4444" opacity="0.4" />
     ${level > 1 ? `<circle cx="50" cy="15" r="4" fill="#fbbf24" opacity="0.5" />` : ''}
@@ -213,7 +202,7 @@ export const SVG_ZOMBIE_BOSS = SVG_START(`
 <rect x="63" y="80" width="12" height="18" fill="#334155" stroke="#0f172a" stroke-width="3" />
 <path d="M15 35 L85 35 L90 85 L10 85 Z" fill="#475569" stroke="#0f172a" stroke-width="5" />
 <rect x="35" y="45" width="30" height="25" fill="#1e293b" rx="5" />
-<circle cx="50" cy="57" r="8" fill="#dc2626" class="animate-pulse" />
+<circle cx="50" cy="57" r="8" fill="#dc2626" />
 <path d="M15 45 L-5 65" stroke="#334155" stroke-width="12" stroke-linecap="round" />
 <circle cx="-5" cy="65" r="10" fill="#1e293b" stroke="#0f172a" stroke-width="2" />
 <path d="M85 45 L105 65" stroke="#334155" stroke-width="12" stroke-linecap="round" />
