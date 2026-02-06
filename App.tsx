@@ -446,7 +446,6 @@ export default function App() {
       <div className="h-[100dvh] w-screen relative overflow-hidden bg-emerald-600 flex flex-col items-center justify-center p-4 select-none">
         <div className="absolute inset-0 bg-gradient-to-b from-sky-400 via-sky-300 to-emerald-500 z-0" />
         
-        {/* Animated Background Elements */}
         <div className="absolute bottom-[-10%] left-[-5%] w-[110%] h-[40%] bg-emerald-600/30 blur-3xl z-1 rotate-3" />
         <div className="absolute top-[10%] left-[10%] w-24 h-24 opacity-20 animate-float pointer-events-none" dangerouslySetInnerHTML={{ __html: SVG_SUNFLOWER(1) }} />
         <div className="absolute top-[20%] right-[15%] w-32 h-32 opacity-20 animate-float pointer-events-none" style={{animationDelay: '1s'}} dangerouslySetInnerHTML={{ __html: SVG_SUNFLOWER(3) }} />
@@ -455,7 +454,7 @@ export default function App() {
           <h1 className="text-6xl md:text-9xl text-yellow-400 font-black text-center drop-shadow-[0_8px_0_#000] leading-tight" style={{ textShadow: '4px 4px 0 #000' }}>
             MATH VS<br/><span className="text-white">ZOMBIES</span>
           </h1>
-          <p className="text-emerald-900 text-2xl font-black mt-4 tracking-widest bg-white/40 px-6 py-1 rounded-full backdrop-blur-sm">Multiplication Defense</p>
+          <p className="text-emerald-900 text-2xl font-black mt-4 tracking-widest bg-white/40 px-6 py-1 rounded-full backdrop-blur-sm">Multiplication Defense Master</p>
         </div>
         
         <div className="relative z-20 mt-16 flex gap-6">
@@ -471,7 +470,7 @@ export default function App() {
   if (status === GameStatus.MENU) {
       return (
           <div className="min-h-[100dvh] w-screen bg-slate-900 flex flex-col items-center justify-start py-8 px-6 text-white font-sans overflow-y-auto">
-              <h2 className="text-3xl md:text-5xl font-black mb-12 text-yellow-400 text-center drop-shadow-lg">PICK YOUR BATTLE TABLES</h2>
+              <h2 className="text-3xl md:text-5xl font-black mb-12 text-yellow-400 text-center drop-shadow-lg uppercase italic tracking-tighter">Choose Your Training Tables</h2>
               <div className="grid grid-cols-4 gap-4 md:gap-8 w-full max-w-3xl mb-12">
                   {[2,3,4,5,6,7,8,9].map(num => (
                       <button key={num} onClick={() => handleTableToggle(num)}
@@ -484,7 +483,7 @@ export default function App() {
               <button disabled={selectedTables.length === 0} onClick={() => { audio.initCtx(); setStatus(GameStatus.PLAYING); audio.playGameStart(); }} 
                 className={`px-16 py-8 md:px-24 md:py-10 text-3xl md:text-4xl font-black rounded-3xl border-b-[12px] active:translate-y-2 active:border-b-0 transition-all
                     ${selectedTables.length > 0 ? 'bg-yellow-500 border-yellow-700 text-yellow-950 shadow-2xl' : 'bg-slate-600 text-slate-400 border-slate-700 opacity-50'}
-                `}>START DEFENSE!</button>
+                `}>BATTLE START!</button>
           </div>
       );
   }
@@ -523,8 +522,8 @@ export default function App() {
             </div>
         </div>
 
-        <div className="flex-1 relative lawn-bg overflow-hidden touch-none flex flex-col">
-            <div className="absolute inset-0 flex flex-col py-1 md:py-2 px-2 md:px-4">
+        <div className="flex-1 relative lawn-bg overflow-hidden touch-none flex flex-col z-0">
+            <div className="absolute inset-0 flex flex-col py-1 md:py-2 px-2 md:px-4 z-10">
                 {Array.from({ length: ROWS }).map((_, r) => (
                     <div key={r} className="flex-1 flex w-full">
                         {Array.from({ length: COLS }).map((_, c) => (
@@ -554,15 +553,16 @@ export default function App() {
                 ))}
             </div>
 
+            {/* Plants Layer */}
             {plants.map(plant => (
-                <div key={plant.id} className="absolute flex items-center justify-center animate-float pointer-events-none"
+                <div key={plant.id} className="absolute flex items-center justify-center animate-float pointer-events-none z-20"
                      style={{ 
                         top: `${(plant.row/ROWS)*100}%`, 
                         left: `${(plant.col/COLS)*100}%`, 
                         width: `${100/COLS}%`, 
-                        height: `${100/ROWS}%` 
+                        height: `${100/ROWS}%`
                      }}>
-                    <div className="w-[80%] h-[80%] flex items-center justify-center filter drop-shadow-xl" dangerouslySetInnerHTML={{ __html: PLANT_CONFIGS[plant.type].svg(plant.level) }} />
+                    <div className="w-[85%] h-[85%] flex items-center justify-center" dangerouslySetInnerHTML={{ __html: (PLANT_CONFIGS[plant.type].svg || (() => ''))(plant.level || 1) }} />
                     {plant.level >= 5 && <div className="absolute inset-0 bg-yellow-400/20 animate-pulse rounded-full blur-md" />}
                     {plant.hp < plant.maxHp && (
                         <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-black rounded-full overflow-hidden border border-white/20">
@@ -572,25 +572,26 @@ export default function App() {
                 </div>
             ))}
 
+            {/* Projectiles Layer */}
             {projectiles.map(proj => (
                 <div key={proj.id} className="absolute w-2.5 h-2.5 md:w-6 md:h-6 rounded-full bg-lime-400 border-2 border-white shadow-[0_0_10px_#a3e635] z-30"
                      style={{ top: `${(proj.row/ROWS)*100 + (50/ROWS)}%`, left: `${proj.x}%`, transform: 'translate(-50%, -50%)' }} />
             ))}
 
+            {/* Zombies Layer */}
             {zombies.map(zombie => {
                 const isHit = Date.now() - (zombie.lastHitTime || 0) < 200;
                 return (
-                    <div key={zombie.id} className={`absolute pointer-events-none transition-all duration-100 ${isHit ? 'animate-zombie-hit' : (zombie.isEating ? '' : 'animate-walk')}`}
+                    <div key={zombie.id} className={`absolute pointer-events-none transition-all duration-100 z-40 ${isHit ? 'animate-zombie-hit' : (zombie.isEating ? '' : 'animate-walk')}`}
                          style={{ 
                             top: `${(zombie.row/ROWS)*100}%`, 
                             left: `${zombie.x}%`, 
                             width: `${100/COLS}%`, 
                             height: `${100/ROWS}%`, 
                             transform: 'translateX(-50%)',
-                            opacity: zombie.isDying ? 0.5 : 1,
-                            zIndex: 10 + zombie.row
+                            opacity: zombie.isDying ? 0.5 : 1
                         }}>
-                        <div className="w-full h-full flex items-center justify-center filter drop-shadow-2xl" dangerouslySetInnerHTML={{ __html: zombie.svg }} />
+                        <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: zombie.svg }} />
                         {!zombie.isDying && (
                             <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-slate-900 rounded-full border border-white/30 overflow-hidden">
                                 <div className="h-full bg-red-500" style={{ width: `${(zombie.hp/zombie.maxHp)*100}%` }} />
@@ -600,25 +601,27 @@ export default function App() {
                 );
             })}
 
+            {/* Items Layer */}
             {floatingSuns.map(s => (
                 <button key={s.id} onClick={(e) => { e.stopPropagation(); collectSun(s.id, s.value); }}
-                        className="absolute w-10 h-10 md:w-16 md:h-16 animate-spin text-2xl md:text-5xl drop-shadow-xl z-40 flex items-center justify-center"
-                        style={{ left: `${s.x}%`, top: `${s.y}%` }}>☀️</button>
+                        className="absolute w-12 h-12 md:w-18 md:h-18 animate-spin text-3xl md:text-6xl drop-shadow-xl z-50 flex items-center justify-center pointer-events-auto"
+                        style={{ left: `${s.x}%`, top: `${s.y}%`, transform: 'translate(-50%, -50%)' }}>☀️</button>
             ))}
 
             {visualCoins.map(c => (
-                <div key={c.id} className="absolute w-8 h-8 md:w-10 md:h-10 animate-bounce text-xl z-40 pointer-events-none"
+                <div key={c.id} className="absolute w-10 h-10 md:w-12 md:h-12 animate-bounce text-xl z-50 pointer-events-none"
                      style={{ left: `${c.x}%`, top: `${c.y}%` }} dangerouslySetInnerHTML={{ __html: SVG_COIN }} />
             ))}
 
-            <div className="absolute bottom-1 right-1 flex flex-row items-end gap-1 scale-[0.4] sm:scale-75 md:scale-100 origin-bottom-right z-40">
+            {/* UI HUD Layer */}
+            <div className="absolute bottom-1 right-1 flex flex-row items-end gap-1 scale-[0.4] sm:scale-75 md:scale-100 origin-bottom-right z-[55]">
                 <PieGauge value={wrongCount * (100/REVENGE_THRESHOLD)} max={100} label="REVENGE" icon="🔥" type="REVENGE" isActive={showRevenge} />
                 <PieGauge value={freezeCharge} max={100} label="FREEZE" icon="❄️" type="FREEZE" isActive={isFrozen} />
             </div>
 
             {feedbackMsg && (
-                <div className="absolute inset-0 flex items-center justify-center z-[150] pointer-events-none">
-                    <div className="bg-black/80 backdrop-blur-xl px-12 py-6 rounded-3xl border-4 border-white/50 text-3xl md:text-5xl font-black text-white animate-bounce shadow-2xl whitespace-nowrap">
+                <div className="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none">
+                    <div className="bg-black/85 backdrop-blur-2xl px-16 py-8 rounded-[3rem] border-8 border-yellow-400 shadow-[0_0_100px_rgba(250,204,21,0.5)] text-4xl md:text-7xl font-black text-white animate-bounce uppercase italic tracking-tighter">
                         {feedbackMsg}
                     </div>
                 </div>
@@ -626,11 +629,14 @@ export default function App() {
         </div>
       </div>
 
-      {activeMathProblem && <MathModal plant={PLANT_CONFIGS[activeMathProblem.plantType]} problem={activeMathProblem.problem} onSolve={handleMathResult} onAttempt={() => {}} onClose={() => setActiveMathProblem(null)} onOpenStudy={() => setShowStudyModal(true)} />}
-      {activeNuclearChallenge && <NuclearChallengeModal tables={selectedTables} onComplete={handleNuclearResult} onClose={() => setActiveNuclearChallenge(null)} onOpenStudy={() => setShowStudyModal(true)} isStudyOpen={showStudyModal} />}
-      {activeClockChallenge && <ClockModal onSolve={handleClockResult} onClose={() => setActiveClockChallenge(null)} />}
-      {activePlantInteraction && <UpgradeModal plant={activePlantInteraction} availableTables={selectedTables} onUpgrade={(id, lv) => { setPlants(prev => prev.map(p => p.id === id ? {...p, level: p.level + lv, hp: p.maxHp, ammo: PLANT_CONFIGS[p.type].maxAmmo} : p)); setActivePlantInteraction(null); }} onHeal={(id) => { setPlants(prev => prev.map(p => p.id === id ? {...p, hp: p.maxHp} : p)); setActivePlantInteraction(null); }} onRemove={(id) => { setPlants(prev => prev.filter(p => p.id !== id)); setActivePlantInteraction(null); }} onAttempt={() => {}} onClose={() => setActivePlantInteraction(null)} onOpenStudy={() => setShowStudyModal(true)} isStudyOpen={showStudyModal} />}
-      {showStudyModal && <div className="fixed inset-0 z-[200]"><StudyMode onBack={() => setShowStudyModal(false)} onPlay={() => { audio.initCtx(); setShowStudyModal(false); }} isIngame={true} /></div>}
+      {/* Modals Layer */}
+      <div className="z-[300]">
+        {activeMathProblem && <MathModal plant={PLANT_CONFIGS[activeMathProblem.plantType]} problem={activeMathProblem.problem} onSolve={handleMathResult} onAttempt={() => {}} onClose={() => setActiveMathProblem(null)} onOpenStudy={() => setShowStudyModal(true)} />}
+        {activeNuclearChallenge && <NuclearChallengeModal tables={selectedTables} onComplete={handleNuclearResult} onClose={() => setActiveNuclearChallenge(null)} onOpenStudy={() => setShowStudyModal(true)} isStudyOpen={showStudyModal} />}
+        {activeClockChallenge && <ClockModal onSolve={handleClockResult} onClose={() => setActiveClockChallenge(null)} />}
+        {activePlantInteraction && <UpgradeModal plant={activePlantInteraction} availableTables={selectedTables} onUpgrade={(id, lv) => { setPlants(prev => prev.map(p => p.id === id ? {...p, level: p.level + lv, hp: p.maxHp, ammo: PLANT_CONFIGS[p.type].maxAmmo} : p)); setActivePlantInteraction(null); }} onHeal={(id) => { setPlants(prev => prev.map(p => p.id === id ? {...p, hp: p.maxHp} : p)); setActivePlantInteraction(null); }} onRemove={(id) => { setPlants(prev => prev.filter(p => p.id !== id)); setActivePlantInteraction(null); }} onAttempt={() => {}} onClose={() => setActivePlantInteraction(null)} onOpenStudy={() => setShowStudyModal(true)} isStudyOpen={showStudyModal} />}
+        {showStudyModal && <div className="fixed inset-0 z-[400]"><StudyMode onBack={() => setShowStudyModal(false)} onPlay={() => { audio.initCtx(); setShowStudyModal(false); }} isIngame={true} /></div>}
+      </div>
     </div>
   );
 }
