@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Math Zombies">
@@ -18,81 +18,66 @@
         touch-action: none;
         font-family: 'Titan One', cursive;
         background-color: #0f172a;
+        margin: 0;
+        padding: 0;
       }
       
-      img, svg {
-        image-rendering: auto;
-        shape-rendering: optimizeSpeed;
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
 
       .gpu-accelerated {
         transform: translateZ(0);
         will-change: left, transform, filter;
         backface-visibility: hidden;
-        perspective: 1000px;
       }
 
       @keyframes float {
         0% { transform: translate3d(0, 0, 0); }
-        50% { transform: translate3d(0, -8px, 0); }
+        50% { transform: translate3d(0, -5px, 0); }
         100% { transform: translate3d(0, 0, 0); }
       }
       .animate-float { animation: float 3s ease-in-out infinite; }
 
       @keyframes zombieWalk {
-        0% { transform: translate3d(-50%, 0, 0) rotate(-3deg); }
-        50% { transform: translate3d(-50%, -5px, 0) rotate(3deg); }
-        100% { transform: translate3d(-50%, 0, 0) rotate(-3deg); }
+        0% { transform: translate3d(-50%, 0, 0) rotate(-2deg); }
+        50% { transform: translate3d(-50%, -3px, 0) rotate(2deg); }
+        100% { transform: translate3d(-50%, 0, 0) rotate(-2deg); }
       }
       .animate-walk { animation: zombieWalk 1.2s infinite linear; }
       
       @keyframes screenshake {
-        0% { transform: translate(1px, 1px) rotate(0deg); }
-        10% { transform: translate(-1px, -2px) rotate(-1deg); }
-        20% { transform: translate(-3px, 0px) rotate(1deg); }
-        30% { transform: translate(3px, 2px) rotate(0deg); }
-        40% { transform: translate(1px, -1px) rotate(1deg); }
-        50% { transform: translate(-1px, 2px) rotate(-1deg); }
-        60% { transform: translate(-3px, 1px) rotate(0deg); }
-        70% { transform: translate(3px, 1px) rotate(-1deg); }
-        80% { transform: translate(-1px, -1px) rotate(1deg); }
-        90% { transform: translate(1px, 2px) rotate(0deg); }
-        100% { transform: translate(1px, -2px) rotate(-1deg); }
+        0%, 100% { transform: translate(0, 0); }
+        25% { transform: translate(-2px, 2px); }
+        50% { transform: translate(2px, -2px); }
+        75% { transform: translate(-1px, -1px); }
       }
-      .screenshake { animation: screenshake 0.15s cubic-bezier(.36,.07,.19,.97) both; }
+      .screenshake { animation: screenshake 0.1s infinite; }
 
       @keyframes zombieHit {
-        0% { transform: scale(1) rotate(0deg); filter: brightness(3); }
-        100% { transform: scale(1) rotate(15deg) translateX(10px); filter: brightness(1); }
+        0% { filter: brightness(3); transform: scale(1.1) rotate(0deg); }
+        100% { filter: brightness(1); transform: scale(1) rotate(10deg) translateX(5px); }
       }
       .animate-zombie-hit { animation: zombieHit 0.2s ease-out forwards; }
 
-      @keyframes shootFlash {
-        0% { transform: scale(1); filter: brightness(2); }
-        100% { transform: scale(1.1); filter: brightness(1); }
+      .lawn-bg {
+        background-color: #064e3b;
+        background-image: 
+          repeating-linear-gradient(90deg, transparent, transparent 11.11%, rgba(0,0,0,0.1) 11.11%, rgba(0,0,0,0.1) 22.22%),
+          linear-gradient(to bottom, #065f46 0%, #064e3b 100%);
+        box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+        position: relative;
       }
-      .animate-shoot { animation: shootFlash 0.2s ease-out; }
-
-      @keyframes shakeDying {
-        0% { transform: translate3d(-50%, 0, 0) rotate(0deg); }
-        25% { transform: translate3d(-52%, 0, 0) rotate(-5deg); }
-        50% { transform: translate3d(-48%, 0, 0) rotate(5deg); }
-        75% { transform: translate3d(-52%, 0, 0) rotate(-5deg); }
-        100% { transform: translate3d(-50%, 0, 0) rotate(0deg); }
-      }
-      .animate-dying { animation: shakeDying 0.2s infinite; }
       
-      @keyframes flash {
-          0% { opacity: 1; }
-          100% { opacity: 0; }
-      }
-      .animate-flash { animation: flash 0.5s ease-out forwards; }
-
       .wood-panel {
-        background-color: #1e293b;
-        border: 4px solid #334155;
+        background-color: #2d1b14;
+        border: 3px solid #5d4037;
         border-radius: 12px;
-        box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
       }
 
       .glossy-btn {
@@ -102,52 +87,24 @@
         transition: transform 0.1s;
       }
       .glossy-btn:active {
-        transform: translateY(4px);
-        border-bottom: 0;
-      }
-      
-      .glossy-red {
-        background-color: #ef4444;
-        border-bottom: 4px solid #991b1b;
+        transform: translateY(2px);
+        border-bottom-width: 2px;
       }
 
-      .lawn-bg {
-        background-color: #064e3b;
-        background-image: 
-          linear-gradient(45deg, #065f46 25%, transparent 25%, transparent 75%, #065f46 75%, #065f46), 
-          linear-gradient(45deg, #065f46 25%, transparent 25%, transparent 75%, #065f46 75%, #065f46);
-        background-size: 60px 60px;
-        background-position: 0 0, 30px 30px;
-        box-shadow: inset 0 0 150px rgba(0,0,0,0.7);
-        position: relative;
-      }
-      
-      .lawn-bg::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.4) 100%);
-        pointer-events: none;
-      }
-
-      #rotate-warning {
-        display: none;
-      }
+      #rotate-warning { display: none; }
       @media screen and (orientation: portrait) {
-        #rotate-warning {
-          display: flex !important;
-        }
+        #rotate-warning { display: flex !important; }
       }
     </style>
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "vite": "https://esm.sh/vite@^7.3.0"
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "@google/genai": "https://esm.sh/@google/genai@^1.39.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3",
+    "vite": "https://esm.sh/vite@^7.3.1"
   }
 }
 </script>
@@ -158,7 +115,7 @@
     <div id="rotate-warning" class="fixed inset-0 z-[100] bg-slate-950 flex-col items-center justify-center text-center p-8">
       <div class="text-6xl mb-4 animate-bounce">🔄</div>
       <h1 class="text-3xl text-emerald-400 font-bold mb-4">가로로 돌려주세요!</h1>
-      <p class="text-slate-400">밤의 정원은 가로 모드에서 더 잘 보입니다.</p>
+      <p class="text-slate-400">더 넓은 정원이 구구단 실력을 기다리고 있습니다.</p>
     </div>
     <script type="module" src="/index.tsx"></script>
   </body>

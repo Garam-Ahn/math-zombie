@@ -1,25 +1,21 @@
+
 import { GoogleGenAI } from "@google/genai";
 
-// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-// Note: vite.config.ts replaces process.env.API_KEY with the actual string value at build time.
 const apiKey = process.env.API_KEY;
 
 let ai: GoogleGenAI | null = null;
 
-// Initialization Safety Check: Prevents "Uncaught Error" which causes Black Screen
 if (apiKey) {
   try {
     ai = new GoogleGenAI({ apiKey });
   } catch (error) {
     console.error("Gemini initialization failed:", error);
   }
-} else {
-  console.warn("API Key is missing. AI features will be disabled. Check Vercel Environment Variables.");
 }
 
 export const generateZombieNote = async (table: number): Promise<string> => {
   if (!ai) {
-    return "수학... 어렵다... (API 키 확인 필요)";
+    return "Math... hard... brain... sleepy...";
   }
 
   try {
@@ -27,37 +23,36 @@ export const generateZombieNote = async (table: number): Promise<string> => {
       model: 'gemini-3-flash-preview',
       contents: `
         You are acting as the leader of the Zombies from Plants vs Zombies. 
-        Write a short, funny, poorly written note (misspelled words, simple grammar) to a child who is learning the ${table} times multiplication table (구구단 ${table}단).
-        The note should be playful and challenging. 
-        IMPORTANT: Do NOT use violent language. Do NOT say "eat brains". Instead, say something like "we will take your garden" or "we want to play".
-        Max 2-3 sentences.
-        Output in Korean language since the child is Korean.
-        Example style: "Hello... we hear u like math... ${table}x${table} is... hard? We coming to garden."
+        Write a short, funny, poorly written note to a child learning the ${table} times multiplication table.
+        IMPORTANT: Misspell words, use simple grammar, be playful. Do NOT use violent language. Do NOT say "eat brains". 
+        Say something like "we will take your garden" or "we want your sunflowers".
+        Max 2 sentences.
+        Language: English.
       `,
     });
-    return response.text || "수학... 어렵다... 우리가 정원을... 가져간다...";
+    return response.text || "Math too hard... we coming for garden!";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "구구단... 공부했나... 우리가 간다... (좀비들이 오고 있습니다!)";
+    return "Zombies are coming! Watch out!";
   }
 };
 
 export const generateMathEncouragement = async (isCorrect: boolean, table: number): Promise<string> => {
   if (!ai) {
-    return isCorrect ? "최고예요!" : "다시 해봐요!";
+    return isCorrect ? "AMAZING!" : "TRY AGAIN!";
   }
 
   try {
     const prompt = isCorrect 
-      ? `Give a super short, high-energy praise in Korean for a child mastering the ${table} times table. Do not use English words. Output strictly in Korean. (e.g., "정말 대단해요!", "천재인가봐요!")`
-      : `Give a super short, gentle encouragement in Korean to try again for the ${table} times table. Do not use English words. Output strictly in Korean. (e.g., "할 수 있어요!", "다시 도전!")`;
+      ? `Give a super short, high-energy praise for a child mastering the ${table} times table. (e.g., "UNSTOPPABLE!", "MATH GENIUS!")`
+      : `Give a super short, gentle encouragement to try again for the ${table} times table. (e.g., "YOU GOT THIS!", "KEEP GOING!")`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
-    return response.text || (isCorrect ? "최고예요!" : "다시 해봐요!");
+    return response.text || (isCorrect ? "BRAVO!" : "DON'T GIVE UP!");
   } catch (error) {
-    return isCorrect ? "참 잘했어요!" : "화이팅!";
+    return isCorrect ? "GREAT JOB!" : "KEEP TRYING!";
   }
 };

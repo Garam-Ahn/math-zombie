@@ -10,7 +10,7 @@ interface MathModalProps {
   onSolve: (success: boolean) => void;
   onAttempt: (answer: number, isCorrect: boolean) => void;
   onClose: () => void;
-  onOpenStudy: () => void; // Added prop
+  onOpenStudy: () => void; 
 }
 
 export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, onAttempt, onClose, onOpenStudy }) => {
@@ -76,18 +76,17 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 sm:w-16 sm:h-16 filter drop-shadow-md" dangerouslySetInnerHTML={{ __html: plant.svg(1) }} />
             <div className="flex flex-col">
-              <span className="text-yellow-100 text-xs sm:text-sm drop-shadow-md">Unlock Plant</span>
-              <span className="text-white text-lg sm:text-xl md:text-2xl font-bold drop-shadow-md" style={{ textShadow: '2px 2px 0 #000' }}>정답을 맞춰봐!</span>
+              <span className="text-yellow-100 text-xs sm:text-sm drop-shadow-md uppercase font-bold tracking-widest">Unlock Plant</span>
+              <span className="text-white text-lg sm:text-xl md:text-2xl font-black drop-shadow-md" style={{ textShadow: '2px 2px 0 #000' }}>SOLVE THE PUZZLE!</span>
             </div>
           </div>
           <div className="flex gap-2">
             <button 
               onClick={onOpenStudy}
               className="bg-purple-600 text-white w-10 h-10 rounded-full border-2 border-purple-800 shadow-lg flex items-center justify-center hover:bg-purple-500 active:scale-95 group relative"
-              title="공부하러 가기"
             >
               <span className="text-xl">📖</span>
-              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">모르면 클릭!</span>
+              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">Need Help?</span>
             </button>
             <button 
               onClick={onClose} 
@@ -135,7 +134,7 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
                 <button 
                     onClick={handleBackspace} 
                     disabled={isSolved}
-                    className={`glossy-red text-white text-xl sm:text-2xl py-3 rounded-lg shadow-md font-black
+                    className={`glossy-red bg-red-600 text-white text-xl sm:text-2xl py-3 rounded-lg shadow-md font-black
                     ${isSolved ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}
                     `}
                 >
@@ -157,7 +156,7 @@ export const MathModal: React.FC<MathModalProps> = ({ plant, problem, onSolve, o
                     ${isSolved ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-300 active:border-b-0 active:translate-y-1'}
                     `}
                 >
-                    {isSolved ? '정답!' : '확인'}
+                    {isSolved ? 'CORRECT!' : 'SUBMIT'}
                 </button>
                 </div>
             </div>

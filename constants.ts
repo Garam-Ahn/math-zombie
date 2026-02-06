@@ -6,6 +6,7 @@ import {
   SVG_WALLNUT, 
   SVG_CHERRYBOMB,
   SVG_JALAPENO,
+  SVG_ICESHROOM,
   SVG_ZOMBIE_NORMAL,
   SVG_ZOMBIE_CONE,
   SVG_ZOMBIE_BUCKET,
@@ -48,7 +49,7 @@ export const PLANT_CONFIGS: Record<PlantType, PlantConfig> = {
     cost: 50,
     hp: 100,
     damage: 60,
-    cooldown: 2200, // Reduced from 4500
+    cooldown: 2200, 
     svg: SVG_PEASHOOTER,
     color: "bg-green-500",
     maxAmmo: 15
@@ -83,6 +84,16 @@ export const PLANT_CONFIGS: Record<PlantType, PlantConfig> = {
     cooldown: 0,
     svg: SVG_WALLNUT,
     color: "bg-amber-700"
+  },
+  [PlantType.ICESHROOM]: {
+    type: PlantType.ICESHROOM,
+    name: "Ice-shroom",
+    description: "전체 좀비를 8초간 꽁꽁 얼려버립니다!",
+    cost: 125,
+    hp: 1000,
+    cooldown: 0,
+    svg: SVG_ICESHROOM,
+    color: "bg-blue-400"
   },
   [PlantType.CHERRYBOMB]: {
     type: PlantType.CHERRYBOMB,

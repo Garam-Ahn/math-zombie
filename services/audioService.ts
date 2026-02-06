@@ -9,9 +9,12 @@ class AudioService {
   
   private lastPlayed: Record<string, number> = {};
 
-  // Atmospheric Night Garden BGM
-  private BGM_URL = "https://cdn.pixabay.com/audio/2022/01/21/audio_77f4851219.mp3"; // "Mystical/Night"
-  private REVENGE_URL = "https://cdn.pixabay.com/audio/2023/10/24/audio_9678e2d46e.mp3"; // "High Energy"
+  /**
+   * [BGM 주소 최적화]
+   * docs.google.com/uc?id= 형식은 스트리밍 재생에 더 안정적입니다.
+   */
+  private BGM_URL = "https://docs.google.com/uc?id=1144qRm4_qzDy_-zu47VNRQHszFJqHgV2"; 
+  private REVENGE_URL = "https://cdn.pixabay.com/audio/2023/10/24/audio_9678e2d46e.mp3";
 
   constructor() {
     this.isMuted = false;
@@ -19,16 +22,24 @@ class AudioService {
         this.bgmAudio = new Audio(this.BGM_URL);
         this.bgmAudio.loop = true;
         this.bgmAudio.volume = 0.3;
+        this.bgmAudio.preload = "auto";
+        // CORS 정책 대응
+        this.bgmAudio.crossOrigin = "anonymous";
 
         this.revengeAudio = new Audio(this.REVENGE_URL);
         this.revengeAudio.loop = true;
         this.revengeAudio.volume = 0.4;
+        this.revengeAudio.preload = "auto";
+        this.revengeAudio.crossOrigin = "anonymous";
     }
   }
 
-  private initCtx() {
+  public initCtx() {
     if (!this.ctx) {
-      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)({
+        latencyHint: 'interactive',
+        sampleRate: 44100,
+      });
       this.masterGain = this.ctx.createGain();
       this.masterGain.connect(this.ctx.destination);
       this.updateMute();
@@ -75,16 +86,16 @@ class AudioService {
   
   playShoot() { 
     const now = Date.now();
-    if (now - (this.lastPlayed['shoot'] || 0) < 100) return;
+    if (now - (this.lastPlayed['shoot'] || 0) < 80) return; 
     this.lastPlayed['shoot'] = now;
     this.playTone(440, 0.05, 'triangle', 0.05); 
   } 
 
   playHit() { 
     const now = Date.now();
-    if (now - (this.lastPlayed['hit'] || 0) < 200) return;
+    if (now - (this.lastPlayed['hit'] || 0) < 100) return; 
     this.lastPlayed['hit'] = now;
-    this.playTone(110, 0.2, 'sawtooth', 0.1); 
+    this.playTone(110, 0.15, 'sawtooth', 0.15); 
   }
 
   playCorrect() { 
@@ -218,9 +229,14 @@ class AudioService {
     osc.stop(this.ctx!.currentTime + 2);
   }
 
-  startBGM() {
+  async startBGM() {
+    this.initCtx();
     if (this.bgmAudio) {
-        this.bgmAudio.play().catch(e => console.warn("Autoplay blocked"));
+        try {
+            await this.bgmAudio.play();
+        } catch (e) {
+            console.warn("Autoplay blocked, waiting for user gesture.");
+        }
     }
   }
 
@@ -231,10 +247,15 @@ class AudioService {
     }
   }
 
-  startRevengeBGM() {
+  async startRevengeBGM() {
+    this.initCtx();
     this.stopBGM();
     if (this.revengeAudio) {
-        this.revengeAudio.play().catch(e => console.warn("Autoplay blocked"));
+        try {
+            await this.revengeAudio.play();
+        } catch (e) {
+            console.warn("Autoplay blocked");
+        }
     }
   }
 

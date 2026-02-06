@@ -14,7 +14,8 @@ export enum PlantType {
   SUNFLOWER = 'SUNFLOWER',
   WALLNUT = 'WALLNUT',
   CHERRYBOMB = 'CHERRYBOMB',
-  JALAPENO = 'JALAPENO' // New Booster Plant
+  JALAPENO = 'JALAPENO',
+  ICESHROOM = 'ICESHROOM'
 }
 
 export interface PlantConfig {
@@ -70,7 +71,7 @@ export interface ProjectileEntity {
   x: number;
   damage: number;
   level: number;
-  isBoosted?: boolean; // New: visual flag for fire peas
+  isBoosted?: boolean;
 }
 
 export interface MathProblem {
